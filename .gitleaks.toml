@@ -1,0 +1,10 @@
+# gitleaks configuration: the default rules, minus public test vectors.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Published test vectors (Wycheproof / NIST ACVP) contain sample keys by design"
+paths = [
+  '''crypto/src/test/resources/(wycheproof|acvp)/''',
+  '''(^|/)build/''',   # build outputs: copies of the vectors above, test reports
+]

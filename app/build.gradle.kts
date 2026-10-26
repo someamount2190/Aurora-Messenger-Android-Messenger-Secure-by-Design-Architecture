@@ -66,9 +66,13 @@ android {
         // from throwing during class-load; tests that need real Android behaviour use
         // Robolectric or live in androidTest (see docs/TEST_ARCHITECTURE.md).
         unitTests.isReturnDefaultValues = true
+        // Robolectric's ParcelFileDescriptor pipes reflect into java.io on JDK 17.
+        unitTests.all { it.jvmArgs("--add-opens", "java.base/java.io=ALL-UNNAMED") }
     }
 
     sourceSets["main"].kotlin.srcDir("src/main/kotlin")
+    // Share the crypto module's independent test vectors (Wycheproof) with app tests.
+    sourceSets["test"].resources.srcDir("../crypto/src/test/resources")
 
     packaging {
         resources {
@@ -113,6 +117,10 @@ dependencies {
     // Kept explicit too (belt-and-suspenders for the post-quantum + classical stack).
     implementation(libs.bcprov)
     implementation(libs.security.crypto)
+    // Pin tink-android to the Tink version the crypto module is tested against. Without this,
+    // security-crypto's transitive tink-android 1.8.0 would be the AEAD that seals every message
+    // on device, while every test suite validated 1.18.0. TinkRuntimeTest guards this.
+    implementation(libs.tink.android)
 
     // Encrypted DB (Phase 2+)
     implementation(libs.sqlcipher)
@@ -155,8 +163,11 @@ dependencies {
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0")
     // Real org.json shadows the throw-on-call android.jar stub so JSON logic is testable.
     testImplementation("org.json:json:20240303")
-    // App's own crypto test fakes reuse the published crypto module's interfaces.
-    testImplementation("com.aura:aura-crypto:0.1.0")
+    // App's own crypto test fakes reuse the published crypto module's interfaces. Same exclusion
+    // as the runtime dependency, so unit tests run the exact Tink that ships (tink-android).
+    testImplementation("com.aura:aura-crypto:0.1.0") {
+        exclude(group = "com.google.crypto.tink", module = "tink")
+    }
     // Robolectric — runs Android-context tests (Room DAOs, settings) off-device.
     testImplementation("org.robolectric:robolectric:4.12.2")
     testImplementation("androidx.test:core:1.5.0")

@@ -23,6 +23,7 @@ import com.aura.security.AppLock
 import com.aura.settings.AuroraSettings
 import com.aura.settings.ThemeMode
 import com.aura.share.PendingShare
+import com.aura.share.IncomingShareUris
 import com.aura.share.ShareIntentBus
 import com.aura.share.ShareShortcuts
 import com.aura.ui.AuroraApp
@@ -213,6 +214,7 @@ class MainActivity : ComponentActivity() {
         // A contact shortcut (direct-share row / launcher long-press) was tapped.
         if (intent.action == Intent.ACTION_VIEW) {
             intent.getStringExtra(ShareShortcuts.EXTRA_CONTACT_NODE_ID)
+                ?.takeIf { NODE_ID.matches(it) }
                 ?.let { shareIntentBus.offerOpenContact(it); return }
         }
         val share = when (intent.action) {
@@ -221,11 +223,14 @@ class MainActivity : ComponentActivity() {
                 if (type == "text/plain" && !intent.hasExtra(Intent.EXTRA_STREAM)) {
                     intent.getStringExtra(Intent.EXTRA_TEXT)?.let { PendingShare(it, emptyList(), type) }
                 } else {
-                    streamExtra(intent)?.let { PendingShare(null, listOf(it), type) }
+                    streamExtra(intent)?.takeIf { IncomingShareUris.isAcceptable(this, it) }
+                        ?.let { PendingShare(null, listOf(it), type) }
                 }
             }
             Intent.ACTION_SEND_MULTIPLE -> {
-                streamListExtra(intent)?.takeIf { it.isNotEmpty() }
+                // Drop links to Aurora's own files / non-content links (see IncomingShareUris).
+                streamListExtra(intent)?.filter { IncomingShareUris.isAcceptable(this, it) }
+                    ?.takeIf { it.isNotEmpty() }
                     ?.let { PendingShare(null, it, intent.type) }
             }
             else -> null
@@ -244,4 +249,8 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= 33)
             intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri::class.java)
         else intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM)
+
+    private companion object {
+        val NODE_ID = Regex("[0-9a-f]{64}")
+    }
 }

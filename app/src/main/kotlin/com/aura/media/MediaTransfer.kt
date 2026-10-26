@@ -15,6 +15,7 @@ import com.aura.transport.rtc.PeerTransport
 import com.aura.ux.MessagePulse
 import dagger.hilt.android.qualifiers.ApplicationContext
 import com.aura.di.IoDispatcher
+import com.aura.share.IncomingShareUris
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -69,12 +70,18 @@ class MediaTransfer @Inject constructor(
         rtcTransport.mediaHandler = { meta, sealed -> storeIncomingMedia(meta, sealed) }
     }
 
-    /** Pick → seal → store → send a gallery image/video. Returns the new message id. */
+    /**
+     * Pick → seal → store → send a gallery or shared image/video. Returns the new message id, or
+     * null if the link isn't another app's content, isn't image/video, or exceeds the size cap.
+     */
     suspend fun sendMedia(contactNodeIdHex: String, uri: Uri, type: String): String? =
         withContext(ioDispatcher) {
-            val plaintext = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                ?: return@withContext null
-            sendBytes(contactNodeIdHex, plaintext, type, durationMs = null)
+            if (!IncomingShareUris.isAcceptable(context, uri)) return@withContext null
+            val kind = IncomingShareUris.mediaKind(context, uri, fallback = type) ?: return@withContext null
+            val plaintext = IncomingShareUris.readBounded(
+                context.contentResolver, uri, EncryptedMediaStore.MAX_MEDIA_BYTES
+            ) ?: return@withContext null
+            sendBytes(contactNodeIdHex, plaintext, kind, durationMs = null)
         }
 
     /** Seal → store → send a recorded voice message. */

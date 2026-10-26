@@ -25,7 +25,7 @@ class VoiceRecorder @Inject constructor(
     fun start(): Boolean {
         if (recorder != null) return false
         return try {
-            val dir = File(context.cacheDir, "voice").apply { mkdirs() }
+            val dir = PlaintextScratch.recordingDir(context).apply { mkdirs() }
             val file = File(dir, "rec-${System.currentTimeMillis()}.m4a")
             val rec = if (Build.VERSION.SDK_INT >= 31) MediaRecorder(context) else @Suppress("DEPRECATION") MediaRecorder()
             rec.setAudioSource(MediaRecorder.AudioSource.MIC)

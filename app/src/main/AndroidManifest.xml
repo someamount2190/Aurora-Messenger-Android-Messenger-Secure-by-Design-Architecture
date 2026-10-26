@@ -47,16 +47,13 @@
              rendezvous probes. All message/media content is end-to-end encrypted
              at the application layer regardless of transport. -->
 
-        <!-- FileProvider for sharing decrypted media from the fullscreen viewer. -->
+        <!-- Shares decrypted media from memory (no plaintext file); read access is granted per
+             link by the share intent. Not exported. -->
         <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.fileprovider"
+            android:name=".media.DecryptedMediaProvider"
+            android:authorities="${applicationId}.decryptedmedia"
             android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths" />
-        </provider>
+            android:grantUriPermissions="true" />
 
         <activity
             android:name=".MainActivity"

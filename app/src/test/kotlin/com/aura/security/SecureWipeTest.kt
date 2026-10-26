@@ -11,6 +11,7 @@ import com.aura.db.MeshPeerEntity
 import com.aura.db.MessageEntity
 import com.aura.db.PrekeyEntity
 import com.aura.identity.IdentityStore
+import com.aura.media.DecryptedMediaProvider
 import com.aura.media.EncryptedMediaStore
 import com.aura.settings.AuroraSettings
 import io.mockk.coEvery
@@ -21,6 +22,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.io.File
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -95,6 +97,23 @@ class SecureWipeTest {
         coVerify { context.deleteSharedPreferences("aura_identity") }
         coVerify { context.deleteSharedPreferences("aura_lock") }
         coVerify { context.deleteSharedPreferences("aura_dbkey") }
+    }
+
+    @Test fun wipeEverything_removesCachePlaintextAndPendingShares() = runBlocking {
+        // Real context here (the main test mocks it): plaintext in the cache must not survive.
+        val leftover = File(ctx.cacheDir, "shared/aurora-m1.jpg").apply { parentFile!!.mkdirs(); writeText("plain") }
+        val recording = File(ctx.cacheDir, "voice/rec-1.m4a").apply { parentFile!!.mkdirs(); writeText("plain") }
+        val shared = ByteArray(8) { 1 }
+        DecryptedMediaProvider.publish(ctx, shared, "image/jpeg", "a.jpg")
+        ctx.deleteDatabase(dbName)
+        val db = openDb()
+
+        SecureWipe(ctx, db, identity, dbKey, media, AuroraSettings(ctx), appLock, Dispatchers.Unconfined)
+            .wipeEverything()
+
+        assertFalse(leftover.exists(), "share-sheet copy erased")
+        assertFalse(recording.exists(), "recording erased")
+        assertTrue(shared.all { it == 0.toByte() }, "pending in-memory share zeroed")
     }
 
     @Test fun oneFailingStep_doesNotAbortKeyDestruction() = runBlocking {

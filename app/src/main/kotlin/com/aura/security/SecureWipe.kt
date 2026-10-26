@@ -4,7 +4,9 @@ import android.content.Context
 import com.aura.db.AuroraDatabase
 import com.aura.db.DbKeyStore
 import com.aura.identity.IdentityStore
+import com.aura.media.DecryptedMediaProvider
 import com.aura.media.EncryptedMediaStore
+import com.aura.media.PlaintextScratch
 import com.aura.settings.AuroraSettings
 import com.aura.di.IoDispatcher
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -44,8 +46,11 @@ class SecureWipe @Inject constructor(
         runCatching { database.meshPeerDao().deleteAll() }
         runCatching { database.ratchetDao().kemDeleteAll() }
         runCatching { database.prekeyDao().deleteAll() }
-        // 2. Encrypted media files.
+        // 2. Encrypted media files, plus any plaintext scratch (an in-progress recording, or
+        //    copies older builds left in the cache) and in-memory pending shares.
         runCatching { mediaStore.wipeAll() }
+        runCatching { PlaintextScratch.wipe(context) }
+        runCatching { DecryptedMediaProvider.clearAll() }
         // 3. App-layer key vaults: lock PINs, identity keys, settings.
         runCatching { appLockManager.disableLock() }
         runCatching { identityManager.clear() }

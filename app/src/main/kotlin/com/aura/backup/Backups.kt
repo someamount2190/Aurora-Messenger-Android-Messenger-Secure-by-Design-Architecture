@@ -127,21 +127,6 @@ class Backups @Inject constructor(
             }
         }
 
-    // ── Argon2id passphrase stretching ────────────────────────────────────────
-
-    private fun deriveKey(passphrase: CharArray, salt: ByteArray): ByteArray {
-        val params = Argon2Parameters.Builder(Argon2Parameters.ARGON2_id)
-            .withVersion(Argon2Parameters.ARGON2_VERSION_13)
-            .withIterations(ARGON2_ITERATIONS)
-            .withMemoryAsKB(ARGON2_MEMORY_KB)
-            .withParallelism(ARGON2_PARALLELISM)
-            .withSalt(salt)
-            .build()
-        val out = ByteArray(32)
-        Argon2BytesGenerator().apply { init(params) }.generateBytes(passphrase, out)
-        return out
-    }
-
     // ── (de)serialization ─────────────────────────────────────────────────────
 
     private fun identityToJson(id: NodeIdentity) = JSONObject()
@@ -211,7 +196,7 @@ class Backups @Inject constructor(
     private fun b64(b: ByteArray) = Base64.encodeToString(b, Base64.NO_WRAP)
     private fun b64d(s: String) = Base64.decode(s, Base64.NO_WRAP)
 
-    private companion object {
+    internal companion object {
         const val MAGIC = "AURABK"
         const val CONTAINER_VERSION = 1
         const val DATA_VERSION = 3   // v3: single KEM ratchet (SAS fp + media key in-blob); no symmetric ratchet
@@ -221,5 +206,19 @@ class Backups @Inject constructor(
         const val ARGON2_ITERATIONS = 3
         const val ARGON2_MEMORY_KB = 64 * 1024
         const val ARGON2_PARALLELISM = 2
+
+        /** Argon2id passphrase stretching. Must never change output: old backups depend on it. */
+        fun deriveKey(passphrase: CharArray, salt: ByteArray): ByteArray {
+            val params = Argon2Parameters.Builder(Argon2Parameters.ARGON2_id)
+                .withVersion(Argon2Parameters.ARGON2_VERSION_13)
+                .withIterations(ARGON2_ITERATIONS)
+                .withMemoryAsKB(ARGON2_MEMORY_KB)
+                .withParallelism(ARGON2_PARALLELISM)
+                .withSalt(salt)
+                .build()
+            val out = ByteArray(32)
+            Argon2BytesGenerator().apply { init(params) }.generateBytes(passphrase, out)
+            return out
+        }
     }
 }

@@ -7,8 +7,10 @@ coroutines      = "1.8.0"
 sqlcipher       = "4.5.6"
 room            = "2.6.1"
 sqlite          = "2.4.0"
-bcprov          = "1.84"
+bcprov          = "1.85"
 tink            = "1.18.0"
+# tink-android is what actually runs on devices (see app/build.gradle.kts); keep it equal to tink.
+tinkAndroid     = "1.18.0"
 securityCrypto  = "1.1.0-alpha06"
 coreKtx         = "1.13.0"
 sharetarget     = "1.2.0"
@@ -40,6 +42,7 @@ room-compiler            = { module = "androidx.room:room-compiler",    version.
 
 bcprov                   = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bcprov" }
 tink                     = { module = "com.google.crypto.tink:tink", version.ref = "tink" }
+tink-android             = { module = "com.google.crypto.tink:tink-android", version.ref = "tinkAndroid" }
 security-crypto          = { module = "androidx.security:security-crypto", version.ref = "securityCrypto" }
 
 core-ktx                 = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }

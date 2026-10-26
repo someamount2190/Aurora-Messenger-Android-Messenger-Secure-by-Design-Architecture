@@ -30,7 +30,7 @@
           "group": "org.bouncycastle",
           "module": "bcprov-jdk18on",
           "version": {
-            "requires": "1.84"
+            "requires": "1.85"
           }
         },
         {
@@ -83,7 +83,7 @@
           "group": "org.bouncycastle",
           "module": "bcprov-jdk18on",
           "version": {
-            "requires": "1.84"
+            "requires": "1.85"
           }
         },
         {

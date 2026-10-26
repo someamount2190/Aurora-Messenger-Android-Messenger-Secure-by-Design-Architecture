@@ -18,6 +18,8 @@ import com.aura.call.CallState
 import com.aura.di.IoDispatcher
 import com.aura.disappearing.DisappearingMessages
 import com.aura.pairing.PairingCoordinator
+import com.aura.media.ByteArrayMediaDataSource
+import com.aura.media.DecryptedMediaProvider
 import com.aura.media.MediaTransfer
 import com.aura.media.VoiceRecorder
 import com.aura.reaction.Reactions
@@ -36,7 +38,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
 import java.util.UUID
 import javax.inject.Inject
 
@@ -155,22 +156,18 @@ class ConversationViewModel @Inject constructor(
         }
     }
 
-    /** Decrypt a media item to a temp file and fire a system share sheet. */
+    /** Decrypt a media item in memory and fire a system share sheet (no plaintext file). */
     fun shareMedia(message: MessageEntity) {
         val path = message.mediaPath ?: return
         viewModelScope.launch {
             val bytes = mediaTransfer.decryptForPreview(contactId, path) ?: return@launch
             val isVideo = message.type == "video"
-            val uri = withContext(ioDispatcher) {
-                val dir = java.io.File(context.cacheDir, "shared").apply { mkdirs() }
-                val file = java.io.File(dir, "aurora-${message.id}.${if (isVideo) "mp4" else "jpg"}")
-                file.writeBytes(bytes)
-                androidx.core.content.FileProvider.getUriForFile(
-                    context, "${context.packageName}.fileprovider", file
-                )
-            }
+            val mimeType = if (isVideo) "video/mp4" else "image/jpeg"
+            val uri = DecryptedMediaProvider.publish(
+                context, bytes, mimeType, "aurora-${message.id}.${if (isVideo) "mp4" else "jpg"}"
+            )
             val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                type = if (isVideo) "video/mp4" else "image/jpeg"
+                type = mimeType
                 putExtra(android.content.Intent.EXTRA_STREAM, uri)
                 addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
@@ -260,16 +257,15 @@ class ConversationViewModel @Inject constructor(
             val bytes = mediaTransfer.decryptForPreview(contactId, path) ?: return@launch
             withContext(ioDispatcher) {
                 stopPlayback()
-                val file = File(context.cacheDir, "play-${message.id}.m4a").apply { writeBytes(bytes) }
+                // Played from memory, like video: decrypted audio never touches disk.
                 player = MediaPlayer().apply {
-                    setDataSource(file.absolutePath)
+                    setDataSource(ByteArrayMediaDataSource(bytes))
                     prepare()
                     start()
                     setOnCompletionListener {
                         _playingId.value = null
                         release()
                         player = null
-                        file.delete()
                     }
                 }
                 _playingId.value = message.id

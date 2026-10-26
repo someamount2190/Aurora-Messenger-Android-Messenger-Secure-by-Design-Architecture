@@ -29,6 +29,19 @@ contacts are unaffected), and the app needs the matching rendezvous server.
   and the scanner checks both halves against a signing key bound to the scanned code. A bundle
   that doesn't verify aborts pairing.
 - The rendezvous server caps each source IP's share of a node's signal queue (8 of 64).
+- The on-device encryption library (`tink-android`) moves from 1.8.0 to 1.18.0, the version the
+  tests run against. Upgrading keeps your identity and message history (checked on an emulator
+  by upgrading over the previous build).
+- Bouncy Castle 1.84 → 1.85 (CVE-2026-8763, CVE-2026-13506; neither was reachable from Aurora).
+
+### Security
+- **Decrypted media no longer touches the disk.** Shared photos and videos were left decrypted
+  in the app cache, and a voice message's decrypted copy stayed there unless playback finished;
+  neither the duress wipe, contact deletion nor disappearing messages removed them. Voice
+  messages now play from memory, media is shared out through an in-memory provider, leftover
+  cache files are swept at launch, and every wipe clears the cache.
+- **Shared links are checked.** Only `content://` links served by another app are read, so
+  another app can no longer hand Aurora a link to Aurora's own private files. Reads are size-capped.
 
 ### Fixed
 - The server no longer crashes when a relayed message is sent to an offline contact.
@@ -38,6 +51,9 @@ contacts are unaffected), and the app needs the matching rendezvous server.
 - Rendezvous server test suite (`node --test`) in CI; relay client, SDP and prekey-verifier
   tests. The unused queue-quota code (`QueueManager`, server queue actions) was removed, as was
   the prekey-fetch `authCommitment` gate. `COTURN_SHARED_SECRET` has no default.
+- Fuzz targets for the crypto decoders (`crypto/src/fuzz`, Jazzer) run as tests. CI adds
+  gitleaks, OSV-Scanner and a Semgrep rule that fails on new plaintext file writes. Argon2id
+  backup-key pins guard against library changes that would make old backups unrestorable.
 
 ## [0.3.0-pre] — 2026-07-02
 

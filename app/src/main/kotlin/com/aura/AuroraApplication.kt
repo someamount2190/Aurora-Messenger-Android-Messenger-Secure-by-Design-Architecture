@@ -3,6 +3,7 @@ package com.aura
 import android.app.Activity
 import android.app.Application
 import android.os.Bundle
+import com.aura.media.PlaintextScratch
 import com.aura.notify.AppForegroundTracker
 import com.aura.security.StartupMigrations
 import dagger.hilt.android.HiltAndroidApp
@@ -23,6 +24,8 @@ class AuroraApplication : Application() {
         // One-time clean break: reset a pre-FIPS identity + its dead contacts on first launch
         // of this build (idempotent; a no-op on normal launches and fresh installs).
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            // Remove plaintext a crash (or an older build) left in the cache.
+            runCatching { PlaintextScratch.sweep(this@AuroraApplication) }
             runCatching { startupMigrations.run() }
         }
         // Track foreground state so backgrounded-only events (message + call

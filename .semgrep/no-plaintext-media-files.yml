@@ -1,0 +1,35 @@
+# Aurora decrypts media only in memory (see docs/DATA_AT_REST.md). File writes in app code are
+# limited to the encrypted media store and the voice recorder's scratch file (PlaintextScratch);
+# anything else could leave plaintext on disk that no wipe removes.
+# Run: semgrep scan --config .semgrep --error app/src/main/kotlin
+rules:
+  - id: aurora-no-plaintext-file-writes
+    languages: [kotlin]
+    severity: ERROR
+    message: >-
+      File write outside the allowlist. Decrypted content must stay in memory
+      (ByteArrayMediaDataSource, DecryptedMediaProvider); if this write is genuinely needed,
+      route it through EncryptedMediaStore or PlaintextScratch and update this rule.
+    pattern-either:
+      - pattern: $F.writeBytes(...)
+      - pattern: $F.writeText(...)
+      - pattern: $F.appendBytes(...)
+      - pattern: $F.outputStream(...)
+      - pattern: FileOutputStream(...)
+      - pattern: java.io.FileOutputStream(...)
+      - pattern: $R.setOutputFile(...)
+      - pattern: $P.setDataSource($X.absolutePath)
+      - pattern: $P.setDataSource($X.path)
+      # The same calls with an implicit receiver, e.g. File(...).apply { writeBytes(b) }.
+      - pattern: writeBytes(...)
+      - pattern: writeText(...)
+      - pattern: appendBytes(...)
+      - pattern: outputStream(...)
+      - pattern: setOutputFile(...)
+      - pattern: setDataSource($X.absolutePath)
+      - pattern: setDataSource($X.path)
+    # Scan target: app/src/main/kotlin (CI passes it explicitly).
+    paths:
+      exclude:
+        - "**/com/aura/media/EncryptedMediaStore.kt"
+        - "**/com/aura/media/VoiceRecorder.kt"
