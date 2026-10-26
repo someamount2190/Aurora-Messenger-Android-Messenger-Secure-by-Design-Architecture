@@ -4,7 +4,9 @@ import android.content.Context
 import com.aura.crypto.toHex
 import com.aura.identity.IdentityStore
 import com.aura.network.SyncEngine
+import com.aura.network.TurnCredentials
 import com.aura.transport.FrameInbox
+import com.aura.transport.IpExposureGate
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,7 +44,8 @@ class RtcTransport @Inject constructor(
     @ApplicationContext private val context: Context,
     private val codec: RtcSignalCodec,
     private val identityManager: IdentityStore,
-    private val inbox: FrameInbox
+    private val inbox: FrameInbox,
+    private val ipGate: IpExposureGate
 ) : PeerTransport {
     private var scope: CoroutineScope? = null
     private var factory: PeerConnectionFactory? = null
@@ -59,11 +62,19 @@ class RtcTransport @Inject constructor(
      */
     override var mediaHandler: (suspend (meta: JSONObject, sealed: ByteArray) -> JSONObject?)? = null
 
-    private val iceServers = listOf(
-        // Self-hosted STUN (coturn on the rendezvous droplet, STUN-only, dual-stack).
-        // Resolves directly to the droplet, so it bypasses any HTTP proxy. No TURN.
+    @Volatile
+    private var iceServers: List<PeerConnection.IceServer> = listOf(
+        // Self-hosted STUN (coturn on the rendezvous droplet, STUN-only fallback, dual-stack).
+        PeerConnection.IceServer.builder("stun:turn.auroramessenger.com:3478").createIceServer(),
         PeerConnection.IceServer.builder("stun:api.auroramessenger.com:3478").createIceServer()
     )
+
+    fun updateIceServers(servers: List<PeerConnection.IceServer>) {
+        if (servers.isNotEmpty()) {
+            iceServers = servers
+            android.util.Log.i(TAG, "updateIceServers: updated with ${servers.size} ICE servers")
+        }
+    }
 
     /** Per-peer connection state for the UI (pairing result + chat header). */
     override fun state(peerNodeIdHex: String): StateFlow<RtcState> = stateFlow(peerNodeIdHex)
@@ -95,7 +106,7 @@ class RtcTransport @Inject constructor(
         lastAttemptMs[peerNodeIdHex] = now
         s.launch {
             android.util.Log.i(TAG, "connectAsync: offering ${peerNodeIdHex.take(8)}")
-            val session = newSession(peerNodeIdHex)
+            val session = newSession(peerNodeIdHex, ipGate.relayOnly(peerNodeIdHex))
             session.create(asCaller = true)
             val offer = session.createOffer()
             session.setLocalDescription(offer)
@@ -148,7 +159,7 @@ class RtcTransport @Inject constructor(
             if (myNodeId < from) return   // keep our outgoing offer; ignore theirs
             teardown(from)                // we yield → rebuild as responder
         }
-        val session = newSession(from)
+        val session = newSession(from, ipGate.relayOnly(from))
         session.create(asCaller = false)
         session.applyRemoteDescription(SessionDescription.Type.OFFER, sdp)
         val answer = session.createAnswer()
@@ -182,7 +193,7 @@ class RtcTransport @Inject constructor(
         }
     }
 
-    private fun newSession(peerNodeIdHex: String): RtcDataSession {
+    private fun newSession(peerNodeIdHex: String, relayOnly: Boolean): RtcDataSession {
         teardown(peerNodeIdHex)   // never leak a previous session for this peer
         // The listener captures `created` so it can ignore callbacks from a session
         // we've already replaced/torn down — otherwise a disposing PeerConnection could
@@ -194,6 +205,7 @@ class RtcTransport @Inject constructor(
         val session = RtcDataSession(
             factory = ensureFactory(),
             iceServers = iceServers,
+            relayOnly = relayOnly,
             scopeProvider = { scope },
             listener = object : RtcDataSession.Listener {
                 override suspend fun onLocalIceCandidate(candidate: IceCandidate) {
@@ -250,4 +262,21 @@ class RtcTransport @Inject constructor(
         /** Don't re-offer the same peer more often than this (avoids flush-retry churn). */
         const val RETRY_COOLDOWN_MS = 30_000L
     }
+}
+
+/**
+ * Convert ephemeral [TurnCredentials] into WebRTC [PeerConnection.IceServer] list.
+ */
+fun TurnCredentials.toIceServers(): List<PeerConnection.IceServer> {
+    val defaultStun = listOf(
+        PeerConnection.IceServer.builder("stun:turn.auroramessenger.com:3478").createIceServer(),
+        PeerConnection.IceServer.builder("stun:api.auroramessenger.com:3478").createIceServer()
+    )
+    val turnServers = uris.map { uri ->
+        PeerConnection.IceServer.builder(uri)
+            .setUsername(username)
+            .setPassword(password)
+            .createIceServer()
+    }
+    return defaultStun + turnServers
 }

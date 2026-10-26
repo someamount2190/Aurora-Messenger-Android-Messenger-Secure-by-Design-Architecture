@@ -142,6 +142,11 @@ data class HybridPublicKey(val encoded: ByteArray) {
 
 /** X-Wing private key (32-byte seed, expanded on use). Never transmitted. */
 data class HybridPrivateKey(val encoded: ByteArray) {
+    /** Zeroize the key material in place before garbage collection. */
+    fun zeroize() {
+        encoded.fill(0)
+    }
+
     override fun equals(other: Any?) = other is HybridPrivateKey && encoded.contentEquals(other.encoded)
     override fun hashCode() = encoded.contentHashCode()
 }

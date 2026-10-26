@@ -41,7 +41,9 @@ class RtcDataSession(
     private val factory: PeerConnectionFactory,
     private val iceServers: List<PeerConnection.IceServer>,
     private val scopeProvider: () -> CoroutineScope?,
-    private val listener: Listener
+    private val listener: Listener,
+    /** Gather only TURN-relayed candidates, so the peer never learns our IP. */
+    private val relayOnly: Boolean = false
 ) {
     /** Events the transport reacts to. State/IO callbacks land on the app scope. */
     interface Listener {
@@ -88,6 +90,7 @@ class RtcDataSession(
             // IPv6 candidate gathering is on by default in this WebRTC build; ICE ranks
             // IPv6 pairs above IPv4 by candidate priority, so IPv6 is tried first and the
             // connection degrades to IPv4 automatically (RFC 8445). No "prefer IPv6" flag.
+            if (relayOnly) iceTransportsType = PeerConnection.IceTransportsType.RELAY
         }
         disposed.set(false)
         setState(RtcState.GATHERING)
@@ -147,7 +150,7 @@ class RtcDataSession(
     }
 
     private fun handleInbound(data: ByteArray) {
-        val frame = try { JSONObject(String(data, StandardCharsets.UTF_8)) } catch (e: Exception) { return }
+        val frame = try { JSONObject(String(data, StandardCharsets.UTF_8).trim()) } catch (e: Exception) { return }
         when (frame.optString("t")) {
             // Delivery receipt for one of our outstanding sends (msg or media).
             "ack" -> pendingAcks.remove(frame.optString("id"))?.complete(frame)
@@ -193,7 +196,8 @@ class RtcDataSession(
         val ch = channel ?: return false
         return try {
             val bytes = frame.toString().toByteArray(StandardCharsets.UTF_8)
-            ch.send(DataChannel.Buffer(ByteBuffer.wrap(bytes), false))
+            val paddedBytes = padToBucket(bytes)
+            ch.send(DataChannel.Buffer(ByteBuffer.wrap(paddedBytes), false))
         } catch (e: Exception) { false }
     }
 
@@ -287,10 +291,24 @@ class RtcDataSession(
         pendingRemoteIce.clear()
     }
 
-    private companion object {
+    internal companion object {
         /** Pause media streaming while the SCTP send buffer holds more than this (bytes). */
         const val MAX_BUFFERED_BYTES = 1L * 1024 * 1024
         /** Re-check the send buffer this often while backpressured. */
         const val BACKPRESSURE_POLL_MS = 16L
+
+        /** Discrete packet buckets to defeat side-channel traffic analysis / fingerprinting (RT-07) */
+        private val PADDING_BUCKETS = intArrayOf(512, 2048, 8192, 32768)
+
+        fun padToBucket(payload: ByteArray): ByteArray {
+            val len = payload.size
+            val target = PADDING_BUCKETS.firstOrNull { it >= len } ?: len
+            if (target == len) return payload
+            val padded = ByteArray(target)
+            System.arraycopy(payload, 0, padded, 0, len)
+            // Trailing spaces (0x20) are valid whitespace in JSON and ignored by JSON parsers
+            java.util.Arrays.fill(padded, len, target, ' '.code.toByte())
+            return padded
+        }
     }
 }

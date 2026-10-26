@@ -44,7 +44,8 @@ class MessageSender @Inject constructor(
     private val rendezvousClient: Rendezvous,
     private val settings: AuroraSettings,
     private val rtcTransport: PeerTransport,
-    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+    private val derpTransport: DerpTransport? = null
 ) {
     private val flushMutex = Mutex()
 
@@ -73,17 +74,28 @@ class MessageSender @Inject constructor(
                 rtcTransport.connectAsync(nodeIdHex)
             }
 
-            // Fallback: TCP direct/relay via the rendezvous-resolved address (LAN and
-            // directly-reachable peers). Keeps same-network delivery instant.
-            val address = resolvePeerAddress(contact)
-            if (address == null) {
-                android.util.Log.d("AuroraSend", "resolve failed for ${nodeIdHex.take(8)}")
-                // Peer isn't registered right now — tap their wake channel so the
-                // backgrounded app comes online; next flush delivers.
-                rendezvousClient.tap(settings.serverAddress.value, nodeIdHex)
-                continue
+            // Next: direct TCP via the rendezvous-resolved address (LAN and directly-reachable
+            // peers) — keeps same-network delivery instant. Skipped when the IP-exposure
+            // policy forbids revealing our address to this contact.
+            if (settings.peerIpExposurePolicy.value.allowsDirect(contact.isMutuallyVerified)) {
+                val address = resolvePeerAddress(contact)
+                if (address != null) {
+                    deliverPendingOver(contact) { frame -> exchangeFrame(address, frame) }
+                    if (messageDao.pendingForContact(nodeIdHex).isEmpty()) continue
+                } else {
+                    android.util.Log.d("AuroraSend", "resolve failed for ${nodeIdHex.take(8)}")
+                }
             }
-            deliverPendingOver(contact) { frame -> exchangeFrame(address, frame) }
+
+            // Last resort: the blind relay. It reaches a peer behind any NAT without exposing
+            // either IP; if the peer is offline the server buffers the frame and wakes them.
+            if (derpTransport != null) {
+                deliverPendingOver(contact) { frame -> derpTransport.send(nodeIdHex, frame) }
+            } else {
+                // No relay: tap their wake channel so the backgrounded app comes online and
+                // a later flush can reach it directly.
+                rendezvousClient.tap(settings.serverAddress.value, nodeIdHex)
+            }
         }
     }
 

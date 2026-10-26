@@ -55,7 +55,10 @@ data class ContactEntity(
     val theyVerified: Boolean = false,
     /** Wrong code-entry attempts during verification (blocklist past the cap). */
     val verifyAttempts: Int = 0
-)
+) {
+    /** True only when mutual code SAS verification has completed both ways. */
+    val isMutuallyVerified: Boolean get() = iVerified && theyVerified
+}
 
 /** Pairing lifecycle states stored in [ContactEntity.pairState]. */
 object PairState {

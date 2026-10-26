@@ -4,6 +4,7 @@ import android.util.Base64
 import com.aura.crypto.HybridKem
 import com.aura.crypto.KemRatchetManager
 import com.aura.crypto.PrekeyManager
+import com.aura.crypto.PrekeyVerifier
 import com.aura.crypto.toHex
 import com.aura.db.ContactDao
 import com.aura.db.ContactEntity
@@ -24,6 +25,7 @@ class ScannerPairing @Inject constructor(
     private val kem: HybridKem,
     private val pairingCrypto: PairingCrypto,
     private val pairingSignal: PairingSignal,
+    private val prekeyVerifier: PrekeyVerifier,
     private val kemRatchet: KemRatchetManager,
     private val contactDao: ContactDao,
     private val eraser: ContactEraser,
@@ -164,11 +166,11 @@ class ScannerPairing @Inject constructor(
     )
 
     /**
-     * Scanner side: if the peer advertises prekeys ([QrPayload.pkVersion] ≥ 1), fetch
-     * their signed bundle, verify each prekey's signature against the QR's authentic
-     * Ed25519 key, encapsulate to identity + signed prekey (+ one-time prekey), and
-     * derive the forward-secret root. Returns null (→ legacy handshake) when no bundle
-     * is published or anything fails — pairing still works, just without the FS upgrade.
+     * Scanner side: fetch the peer's prekey bundle, bind its hybrid signing key to the
+     * scanned nodeId, verify each prekey's hybrid (ML-DSA-65 + Ed25519) signature, then
+     * encapsulate to identity + signed prekey (+ one-time prekey) and derive the
+     * forward-secret root. Returns null — and the caller fails closed — when no bundle is
+     * published, the signing key doesn't bind, or the signed prekey doesn't verify.
      */
     private suspend fun tryFsEncapsulate(payload: QrPayload, myNodeIdHex: String): FsEncap? {
         if (payload.pkVersion < 1) return null
@@ -176,18 +178,22 @@ class ScannerPairing @Inject constructor(
             .fetchPrekeyBundle(settings.serverAddress.value, payload.nodeIdHex)
             .getOrNull() ?: return null
 
-        val ed = payload.ed25519Pub
+        val signKey = bundle.signPub?.let {
+            prekeyVerifier.bindSigningKey(payload.nodeIdHex, payload.kemPublicKey, payload.ed25519Pub, it)
+        } ?: return null
         val spkPubB64 = Base64.encodeToString(bundle.spkPub.toBytes(), Base64.NO_WRAP)
-        val spkMsg = PrekeyManager.prekeyMessage(payload.nodeIdHex, PrekeyManager.KIND_SPK, bundle.spkId, spkPubB64)
-        if (!pairingSignal.verifyEdBytes(spkMsg, ed, bundle.spkSig)) return null
+        if (!prekeyVerifier.verifyPrekey(
+                payload.nodeIdHex, PrekeyManager.KIND_SPK, bundle.spkId, spkPubB64, bundle.spkSig, signKey)) return null
 
         // One-time prekey is optional; drop it (rather than abort) if its signature fails.
         var opkPub = bundle.opkPub
         var opkId = bundle.opkId
         if (opkPub != null && opkId != null && bundle.opkSig != null) {
             val opkPubB64 = Base64.encodeToString(opkPub.toBytes(), Base64.NO_WRAP)
-            val opkMsg = PrekeyManager.prekeyMessage(payload.nodeIdHex, PrekeyManager.KIND_OPK, opkId, opkPubB64)
-            if (!pairingSignal.verifyEdBytes(opkMsg, ed, bundle.opkSig)) { opkPub = null; opkId = null }
+            if (!prekeyVerifier.verifyPrekey(
+                    payload.nodeIdHex, PrekeyManager.KIND_OPK, opkId, opkPubB64, bundle.opkSig, signKey)) {
+                opkPub = null; opkId = null
+            }
         } else { opkPub = null; opkId = null }
 
         val rIK  = kem.encapsulate(payload.kemPublicKey).getOrThrow()

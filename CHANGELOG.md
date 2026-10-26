@@ -6,7 +6,38 @@ line (`0.2.1-pre`) while the design stabilises.
 
 ## [Unreleased]
 
-Nothing yet.
+Messages reach contacts behind any network, and you choose who can see your IP address.
+**Pairing breaks compatibility:** this build cannot pair with earlier builds (already-paired
+contacts are unaffected), and the app needs the matching rendezvous server.
+
+### Added
+- **Blind relay.** When neither the peer-to-peer data channel nor a direct connection can
+  reach a contact (for example both on mobile data), messages travel through the rendezvous
+  server's relay. They stay end-to-end encrypted; the relay only routes them. An offline
+  contact is woken and the message waits up to a minute for them. Relay connections are
+  authenticated, and delivery is confirmed by the recipient's own receipt.
+- **"Who can see your IP address"** (Settings → Privacy): any contact (default), verified
+  contacts only, or never. With "never", connections to contacts are relayed so they don't
+  learn your IP; calls in that mode need a TURN server.
+- TURN support: the app picks up short-lived TURN credentials from the server when the
+  operator configures them.
+- Calls request constant-bitrate Opus and cap audio/video bandwidth; data-channel frames are
+  padded to fixed size buckets.
+
+### Changed
+- **Prekeys are verified post-quantum.** Each prekey carries an ML-DSA-65 + Ed25519 signature,
+  and the scanner checks both halves against a signing key bound to the scanned code. A bundle
+  that doesn't verify aborts pairing.
+- The rendezvous server caps each source IP's share of a node's signal queue (8 of 64).
+
+### Fixed
+- The server no longer crashes when a relayed message is sent to an offline contact.
+- Call setup no longer produces a malformed session description when applying bandwidth caps.
+
+### Internal
+- Rendezvous server test suite (`node --test`) in CI; relay client, SDP and prekey-verifier
+  tests. The unused queue-quota code (`QueueManager`, server queue actions) was removed, as was
+  the prekey-fetch `authCommitment` gate. `COTURN_SHARED_SECRET` has no default.
 
 ## [0.3.0-pre] — 2026-07-02
 

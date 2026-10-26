@@ -15,6 +15,22 @@ permissions:
   contents: read
 
 jobs:
+  rendezvous-server:
+    name: rendezvous server (node:test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # No dependencies: the server and its tests use only Node built-ins.
+      - name: Test rendezvous server
+        working-directory: rendezvous-server
+        run: node --test
+
   crypto:
     name: crypto (pure-JVM)
     runs-on: ubuntu-latest

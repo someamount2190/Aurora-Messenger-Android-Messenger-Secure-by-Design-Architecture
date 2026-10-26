@@ -29,16 +29,16 @@ class PrekeyManagerTest {
         assertEquals(PrekeyManager.OPK_PUBLISH_COUNT, opks.length())
 
         val nodeIdHex = id.nodeId.toHex()
-        val edPub = id.publicPart.signingPublicKey.ed25519PublicKey
-        // SPK signature verifies under the identity's Ed25519 key over the canonical message
+        val verifyKey = id.publicPart.signingPublicKey
+        // SPK signature verifies under the hybrid verify key (ML-DSA-65 + Ed25519)
         val spkMsg = PrekeyManager.prekeyMessage(nodeIdHex, PrekeyManager.KIND_SPK,
             spk.getString("id"), spk.getString("pub"))
-        assertTrue(signer.verifyEd25519OnlySync(spkMsg, B64.decode(spk.getString("sig")), edPub))
+        assertTrue(signer.verifyHybridSync(spkMsg, B64.decode(spk.getString("sig")), verifyKey))
         // and the first OPK too
         val o0 = opks.getJSONObject(0)
         val opkMsg = PrekeyManager.prekeyMessage(nodeIdHex, PrekeyManager.KIND_OPK,
             o0.getString("id"), o0.getString("pub"))
-        assertTrue(signer.verifyEd25519OnlySync(opkMsg, B64.decode(o0.getString("sig")), edPub))
+        assertTrue(signer.verifyHybridSync(opkMsg, B64.decode(o0.getString("sig")), verifyKey))
     }
 
     @Test fun consume_opkIsSingleUse() = runTest {

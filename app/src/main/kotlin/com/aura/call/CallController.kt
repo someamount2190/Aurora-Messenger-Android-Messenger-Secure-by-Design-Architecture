@@ -10,6 +10,7 @@ import java.util.UUID
 import com.aura.network.SyncEngine
 import com.aura.notify.Notifier
 import com.aura.service.WakeService
+import com.aura.transport.IpExposureGate
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,7 +41,8 @@ class CallController @Inject constructor(
     private val identityStore: IdentityStore,
     private val syncEngine: SyncEngine,
     private val notifier: Notifier,
-    private val ringer: Ringer
+    private val ringer: Ringer,
+    private val ipGate: IpExposureGate
 ) {
     // The call state machine's model types ([CallState], [CallInfo]) live in CallModels.kt.
 
@@ -126,6 +128,11 @@ class CallController @Inject constructor(
         }
     }
 
+    /** Update WebRTC ICE servers dynamically (STUN + Coturn ephemeral TURN). */
+    fun updateIceServers(servers: List<org.webrtc.PeerConnection.IceServer>) {
+        session.setIceServers(servers)
+    }
+
     // ── Outbound call ──────────────────────────────────────────────────────
 
     fun startCall(peerNodeIdHex: String, video: Boolean = true) {
@@ -147,7 +154,7 @@ class CallController @Inject constructor(
             val contact = contactDao.byNodeId(peerNodeIdHex)
             _call.value = CallInfo(CallState.OUTGOING, peerNodeIdHex, contact?.displayName, isCaller = true, isVideo = video)
             android.util.Log.i(TAG, "startCall: OUTGOING set, creating PC (video=$video)")
-            session.create()
+            session.create(relayOnly = ipGate.relayOnly(peerNodeIdHex))
             session.addLocalTracks(video)
             android.util.Log.i(TAG, "startCall: tracks added (+${System.currentTimeMillis() - t0}ms), creating offer")
             val offer = session.createOffer()
@@ -187,7 +194,7 @@ class CallController @Inject constructor(
         WakeService.setCallActive(context, active = true, video = pendingOfferIsVideo)
         s.launch {
             _call.value = _call.value.copy(state = CallState.CONNECTING)
-            session.create()
+            session.create(relayOnly = ipGate.relayOnly(peer))
             session.addLocalTracks(pendingOfferIsVideo)
             // Apply the remote offer + replay ICE the caller trickled before we accepted.
             session.applyRemoteDescription(SessionDescription.Type.OFFER, offerSdp)

@@ -12,6 +12,7 @@ import com.aura.crypto.HybridSigner
 import com.aura.crypto.KemRatchetManager
 import com.aura.crypto.NodeIdentityGenerator
 import com.aura.crypto.PrekeyManager
+import com.aura.crypto.PrekeyVerifier
 import com.aura.crypto.SymmetricCipher
 import com.aura.crypto.toHex
 import com.aura.db.AuroraDatabase
@@ -23,6 +24,7 @@ import org.json.JSONObject
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -73,11 +75,17 @@ class PqxdhHandshakeSimTest {
         val spkId = spk.getString("id")
         val spkPubB64 = spk.getString("pub")
         val spkPub = HybridPublicKey.fromBytes(b64d(spkPubB64))
-        // Initiator verifies the signed-prekey signature against the responder's QR Ed25519 key.
-        val spkMsg = PrekeyManager.prekeyMessage(respHex, PrekeyManager.KIND_SPK, spkId, spkPubB64)
+        // Initiator binds the bundle's signing key to the responder's QR (nodeId + KEM + Ed25519
+        // keys), then verifies the signed prekey's hybrid signature — exactly as ScannerPairing does.
+        val verifier = PrekeyVerifier(signer, hkdf)
+        val signKey = verifier.bindSigningKey(
+            respHex, respId.publicPart.kemPublicKey, respId.publicPart.signingPublicKey.ed25519PublicKey,
+            b64d(bundle.getString("signPub"))
+        )
+        assertNotNull("bundle signing key must bind to the scanned nodeId", signKey)
         assertTrue(
-            "signed-prekey signature must verify",
-            signer.verifyEd25519Only(spkMsg, b64d(spk.getString("sig")), respId.publicPart.signingPublicKey.ed25519PublicKey).getOrThrow()
+            "signed-prekey hybrid signature must verify",
+            verifier.verifyPrekey(respHex, PrekeyManager.KIND_SPK, spkId, spkPubB64, b64d(spk.getString("sig")), signKey!!)
         )
 
         val opk = bundle.getJSONArray("opks").getJSONObject(0)

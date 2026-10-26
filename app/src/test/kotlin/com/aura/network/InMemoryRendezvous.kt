@@ -67,6 +67,9 @@ class InMemoryRendezvous(private val broker: Broker = Broker()) : Rendezvous {
     override suspend fun fetchPrekeyBundle(serverBaseUrl: String, nodeIdHex: String): Result<PrekeyBundle?> =
         Result.success(null)
 
+    override suspend fun getTurnCredentials(serverBaseUrl: String, identity: NodeIdentity): Result<TurnCredentials?> =
+        Result.success(null)
+
     override suspend fun probe(serverBaseUrl: String): Boolean = true
     override suspend fun firstReachable(candidates: List<String>): String? = candidates.firstOrNull()
     override suspend fun waitForWake(serverBaseUrl: String, identity: NodeIdentity): Result<Boolean> = Result.success(false)

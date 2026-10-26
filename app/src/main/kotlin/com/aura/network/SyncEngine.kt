@@ -65,6 +65,12 @@ class SyncEngine @Inject constructor(
     private val _lastCheckinResult = MutableStateFlow<String?>(null)
     val lastCheckinResult: StateFlow<String?> = _lastCheckinResult
 
+    /** Callback invoked whenever fresh ephemeral TURN credentials are retrieved from the rendezvous server. */
+    var onTurnCredentialsUpdated: ((TurnCredentials) -> Unit)? = null
+
+    /** Invoked when the server wakes us (a signal, tap, or frame buffered on the relay). */
+    var onWoken: (() -> Unit)? = null
+
     /** Handlers for non-pairing signal types (Phase 7 call signaling registers here).
      *  Concurrent because it's written by wiring threads (registerSignalHandler) and read
      *  by the engine coroutine (tick); registration normally precedes start() but this keeps
@@ -164,7 +170,7 @@ class SyncEngine @Inject constructor(
             // false) → a small breather so it can't busy-loop.
             else -> {
                 consecutiveFailures = 0
-                if (result.getOrDefault(false) == false) delay(WAKE_IDLE_BREATHER_MS)
+                if (result.getOrDefault(false)) onWoken?.invoke() else delay(WAKE_IDLE_BREATHER_MS)
             }
         }
     }
@@ -182,6 +188,12 @@ class SyncEngine @Inject constructor(
             )
             if (result.isSuccess) {
                 lastCheckinMs = now
+                // Fetch ephemeral Coturn credentials (RFC 7635) for NAT traversal across CGNAT.
+                runCatching {
+                    rendezvousClient.getTurnCredentials(server, identity).getOrNull()?.let { creds ->
+                        onTurnCredentialsUpdated?.invoke(creds)
+                    }
+                }
                 // Publish our forward-secret prekey bundle so initiators who scan our QR
                 // can run the PQXDH handshake. Best-effort: an older server without
                 // /prekeys (or a network hiccup) just means peers fall back to the legacy

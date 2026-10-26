@@ -337,6 +337,12 @@ data class HybridSigningKey(
     val dilithiumPrivateKey: ByteArray,
     val ed25519PrivateKey:   ByteArray
 ) {
+    /** Zeroize sensitive signing key material in place. */
+    fun zeroize() {
+        dilithiumPrivateKey.fill(0)
+        ed25519PrivateKey.fill(0)
+    }
+
     override fun equals(other: Any?) = other is HybridSigningKey &&
         dilithiumPrivateKey.contentEquals(other.dilithiumPrivateKey) &&
         ed25519PrivateKey.contentEquals(other.ed25519PrivateKey)

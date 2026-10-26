@@ -1,19 +1,24 @@
 # Test Implementation Status
 
 Tracks what's built against the plan in [`TEST_ARCHITECTURE.md`](TEST_ARCHITECTURE.md).
-Last updated: 2026-06-23 (post crypto re-engineering — pure-JVM, no liboqs/native tier).
+Last updated: 2026-10-26 (relay protocol v2, post-quantum prekey verification, SDP fix).
 
 ## Summary
 
 | | Verified green | Skipped |
 |---|---|---|
-| `crypto` module | **150** | 0 |
-| `app` module | **110** | 0 |
-| **Total** | **260** | 0 |
+| `crypto` module | **161** | 0 |
+| `app` module | **143** | 0 |
+| `rendezvous-server` (Node) | **17** | 0 |
+| **Total** | **321** | 0 |
 
 Run (both pure-JVM/Robolectric, no native deps, CI-friendly):
-- `./gradlew -p crypto test` → 150 pass.
-- `./gradlew :app:testDebugUnitTest` → 110 pass.
+- `./gradlew -p crypto test` → 161 pass.
+- `./gradlew -p crypto publish` — **required before app tests locally**: the app consumes
+  `aura-crypto` from the jar in `libs/maven`, so without it app tests run against stale crypto
+  (CI does this automatically).
+- `./gradlew :app:testDebugUnitTest` → 143 pass.
+- `cd rendezvous-server && node --test` → 17 pass (real server process, HTTP + raw WebSocket).
 
 ## Crypto — all pure-JVM now ✅
 

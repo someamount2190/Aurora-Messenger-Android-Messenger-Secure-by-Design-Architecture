@@ -64,13 +64,17 @@ opaque signaling. See the DFD in [`ARCHITECTURE.md`](ARCHITECTURE.md) §2.
 | T-RZV-05 | (S) Rogue CA intercepts TLS | Certificate pinning (+ backup pin) in client | Pin mismanagement |
 | T-RZV-06 | (D) Flood / abuse | Per-IP rate limits; bounded queue; body caps (`PROTOCOL` §4) | Single-instance DoS (non-goal) |
 | T-RZV-07 | (I) Identify real address from `/find` | 9 length-matched signed decoys, shuffled (`PROTOCOL` §3) | Active correlation by ADV-3 |
+| T-RZV-08 | (S/I) Receive another node's relayed frames | Relay sockets answer a fresh nonce with an Ed25519 signature under the checked-in key; only the addressed node can ack a ticket (`PROTOCOL` §9) | — |
+| T-RZV-09 | (T) Relay fakes delivery / drops frames | Ack is the recipient's own inbox response; client drops frames whose `from` disagrees with the relay | A malicious relay can still forge an ack or drop frames (same as an on-path attacker on TCP) |
+| T-RZV-10 | (D) Crash or exhaust the relay | Per-connection error isolation; frame/buffer/in-flight/rate/socket caps; unauthenticated sockets dropped in 10 s (`PROTOCOL` §4) | Single-instance DoS (non-goal) |
+| T-RZV-11 | (I) Peer learns our IP | User setting: direct for any / verified-only / never; "never" uses relay-only ICE + the blind relay | The rendezvous still sees our IP; relay-only calls need TURN |
 
 ### Pairing
 | ID | Threat | Mitigation | Residual |
 |---|---|---|---|
 | T-PAIR-01 | (S) MITM during QR pairing | Mutual SAS; codes derived locally, never sent; MITM → mismatched roots | SAS not checked out-of-band |
-| T-PAIR-02 | (T) Tamper prekey bundle / substitute keys | Each prekey Ed25519-signed vs QR key; transcript-bound root | — |
-| T-PAIR-03 | (I) Downgrade to no-FS legacy handshake | App raises `WeakPairing` warning when prekeys advertised but unusable | User proceeds despite warning |
+| T-PAIR-02 | (T) Tamper prekey bundle / substitute keys | Bundle's hybrid signing key must hash (with the QR's KEM key) to the scanned nodeId; each prekey hybrid-signed (ML-DSA-65 + Ed25519), both halves verified (`CRYPTO_SPEC` §8); transcript-bound root | — |
+| T-PAIR-03 | (I) Downgrade to no-FS legacy handshake | No legacy handshake: a missing or unverifiable bundle aborts pairing (fail closed) | Suppressing prekeys blocks pairing (DoS) |
 | T-PAIR-04 | (S) OPK reuse / stale code | OPK deleted on consume; missing OPK → `pairreject` (fail closed) | — |
 
 ### Cryptography
@@ -115,9 +119,10 @@ opaque signaling. See the DFD in [`ARCHITECTURE.md`](ARCHITECTURE.md) §2.
 - **No anonymity / traffic-analysis resistance** in the default path; the rendezvous learns
   reachability + IP (P-DET-01, P-IDENT-01). Optional ShadowMesh relay (off by default).
 - **Availability:** single free rendezvous, no DoS guarantees (T-RZV-06).
-- **Direct-P2P over NAT:** two peers both behind CGNAT may not deliver without a relay
-  (see [`AUDIT_SCOPE.md`](AUDIT_SCOPE.md)).
-- **Legacy-handshake downgrade** possible if an attacker suppresses prekeys (T-PAIR-03).
+- **Direct-P2P over NAT:** two peers both behind CGNAT fall back to the blind relay for
+  messages; calls between them need TURN (see [`AUDIT_SCOPE.md`](AUDIT_SCOPE.md)).
+- **Prekey suppression blocks pairing** (T-PAIR-03) — it can no longer downgrade it.
+- **The blind relay can forge acks or drop frames** (T-RZV-09); it cannot read or alter content.
 - **No independent audit yet.**
 
 ## 8. Assurance (threat → test)

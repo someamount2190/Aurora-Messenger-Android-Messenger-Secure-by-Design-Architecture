@@ -20,7 +20,9 @@ data class FindCandidate(
 /**
  * One peer's forward-secret prekeys, fetched from the rendezvous server: the signed
  * prekey (always present) and one popped one-time prekey (null once the pool is
- * exhausted). Signatures are verified by the caller against the peer's Ed25519 key.
+ * exhausted), plus the peer's hybrid signing key [signPub] (null from a server that doesn't
+ * carry it). The caller binds [signPub] to the scanned nodeId and verifies both signature
+ * halves with it — see [com.aura.crypto.PrekeyVerifier].
  */
 data class PrekeyBundle(
     val spkId: String,
@@ -28,7 +30,18 @@ data class PrekeyBundle(
     val spkSig: ByteArray,
     val opkId: String?,
     val opkPub: HybridPublicKey?,
-    val opkSig: ByteArray?
+    val opkSig: ByteArray?,
+    val signPub: ByteArray?
+)
+
+/**
+ * Ephemeral Coturn credentials (RFC 7635) for NAT traversal across CGNAT.
+ */
+data class TurnCredentials(
+    val username: String,
+    val password: String,
+    val ttlSeconds: Long,
+    val uris: List<String>
 )
 
 /**
@@ -74,6 +87,8 @@ interface Rendezvous {
     suspend fun publishPrekeys(serverBaseUrl: String, identity: NodeIdentity, bundleJson: String): Result<Unit>
 
     suspend fun fetchPrekeyBundle(serverBaseUrl: String, nodeIdHex: String): Result<PrekeyBundle?>
+
+    suspend fun getTurnCredentials(serverBaseUrl: String, identity: NodeIdentity): Result<TurnCredentials?>
 
     companion object {
         /** Port the direct-TCP message listener binds to. */

@@ -164,6 +164,8 @@ dependencies {
     // mockk — for orchestration classes whose collaborators are concrete (network/Keystore-bound)
     // and can't be driven with real instances under Robolectric.
     testImplementation("io.mockk:mockk:1.13.13")
+    // Plays the rendezvous relay over a real WebSocket in DerpTransportTest.
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     // Room migration testing runs under Robolectric in the unit-test source set (CI-gated).
     testImplementation("androidx.room:room-testing:2.6.1")
     androidTestImplementation("androidx.room:room-testing:2.6.1")

@@ -25,6 +25,14 @@ class CheckinSigningTest {
         )
     }
 
+    @Test fun relayMessage_isCanonicalFormat() {
+        // Must match relayMessage() in rendezvous-server/index.js.
+        assertTrue(
+            "aura-relay-v1|abcd|n0nce".toByteArray(Charsets.UTF_8)
+                .contentEquals(AuroraRendezvousServer.relayMessage("abcd", "n0nce"))
+        )
+    }
+
     @Test fun constants_matchDeployedServer() {
         assertEquals(8080, AuroraRendezvousServer.DEFAULT_PORT)
         assertEquals(15 * 60 * 1000L, AuroraRendezvousServer.TTL_MS)

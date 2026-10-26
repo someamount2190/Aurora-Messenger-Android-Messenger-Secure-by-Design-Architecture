@@ -85,10 +85,11 @@ sequenceDiagram
   participant R as Rendezvous
   participant H as Host (responder)
   H->>R: publish signed prekey bundle (SPK + OPKs)
-  Note over S: scan QR (authentic KEM + Ed25519 keys)
+  Note over S: scan QR (authentic nodeId + KEM + Ed25519 keys)
   S->>R: GET /prekeys/<host>  (pops one OPK)
-  R-->>S: { spk, opk }
-  S->>S: verify each prekey's Ed25519 sig vs QR key
+  R-->>S: { spk, opk, signPub }
+  S->>S: require SHA3-256(kem ‖ signPub) == nodeId
+  S->>S: verify each prekey's hybrid sig under signPub
   S->>S: encapsulate to IK, SPK, OPK → sIK,sSPK,sOPK + cts
   S->>S: root = fsRoot(...)  (store root; never sent)
   S->>R: signal pairreq (keys + ciphertexts + ids, signed)
@@ -181,10 +182,15 @@ is attempt-limited).
 - **Signed prekey (SPK):** one current X-Wing keypair, rotated every **7 days** with a 7-day
   grace overlap. **One-time prekeys (OPK):** pool target 20, published in batches; server
   retains at most 100; **consumed (deleted) on first fetch**.
-- Each prekey is published with an **Ed25519 signature** (compact, for bandwidth) over
-  `aura-prekey-v1|<nodeId>|<kind>|<id>|<pubB64>`, verified by the scanner against the QR's
-  authentic Ed25519 key.
-- Bundle JSON: `{ "spk": {id,pub,sig}, "opks": [{id,pub,sig}, ...] }`.
+- Each prekey is published with a **hybrid (ML-DSA-65 + Ed25519) signature** over
+  `aura-prekey-v1|<nodeId>|<kind>|<id>|<pubB64>`.
+- The QR has no room for the ML-DSA-65 key, so the bundle carries the full hybrid verify key
+  (`signPub`). The scanner (`PrekeyVerifier`) accepts it only if
+  `SHA3-256(qr.kem ‖ signPub) == qr.nodeId` and its Ed25519 half equals the QR's key — the
+  server cannot substitute a key without changing the scanned nodeId. **Both** signature halves
+  must then verify; an Ed25519-only signature is rejected. A bundle without `signPub`, or whose
+  signed prekey fails, aborts pairing (fail closed); a failing OPK is dropped.
+- Bundle JSON: `{ "spk": {id,pub,sig}, "opks": [{id,pub,sig}, ...], "signPub": b64 }`.
 
 ## 9. At-rest & backups (summary)
 SQLCipher (AES-256) DB; identity keys in EncryptedSharedPreferences under a Keystore master

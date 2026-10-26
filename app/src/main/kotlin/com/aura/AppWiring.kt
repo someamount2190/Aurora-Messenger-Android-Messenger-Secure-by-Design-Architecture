@@ -8,10 +8,13 @@ import com.aura.reaction.Reactions
 import com.aura.server.RendezvousServerController
 import com.aura.settings.AuroraSettings
 import com.aura.share.ShareShortcuts
+import com.aura.transport.DerpTransport
 import com.aura.transport.rtc.RtcTransport
+import com.aura.transport.rtc.toIceServers
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -36,6 +39,7 @@ class AppWiring @Inject constructor(
     private val callManager: CallController,
     private val shareShortcutManager: ShareShortcuts,
     private val rtcTransport: RtcTransport,
+    private val derpTransport: DerpTransport,
     private val syncEngine: SyncEngine
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -52,9 +56,17 @@ class AppWiring @Inject constructor(
         disappearingManager.start()
         reactionManager.start()
         callManager.init(scope)
+        derpTransport.init(scope)
         // Register the "rtc" data-channel signal handler BEFORE the sync loop starts
         // draining signals, so an inbound offer that arrives immediately is handled.
         rtcTransport.init(scope, syncEngine)
+        syncEngine.onTurnCredentialsUpdated = { creds ->
+            val servers = creds.toIceServers()
+            rtcTransport.updateIceServers(servers)
+            callManager.updateIceServers(servers)
+        }
+        // A wake may mean the relay is holding frames for us: reconnect so it flushes them.
+        syncEngine.onWoken = { scope.launch { derpTransport.resume() } }
         shareShortcutManager.start()
         syncEngine.start()
     }

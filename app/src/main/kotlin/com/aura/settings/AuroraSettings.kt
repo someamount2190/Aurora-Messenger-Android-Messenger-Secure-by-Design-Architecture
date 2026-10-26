@@ -83,6 +83,20 @@ class AuroraSettings @Inject constructor(
      */
     val shadowMeshEnabled: StateFlow<Boolean> = _shadowMeshEnabled
 
+    private val _peerIpExposurePolicy = MutableStateFlow(
+        PeerIpExposurePolicy.fromKey(prefs.getString(KEY_PEER_IP_POLICY, null))
+    )
+    /**
+     * IP Privacy Gate for P2P Discovery (RT-01 Remediation).
+     * Controls when direct peer-to-peer IP exposure is permitted vs routing via relay.
+     */
+    val peerIpExposurePolicy: StateFlow<PeerIpExposurePolicy> = _peerIpExposurePolicy
+
+    fun setPeerIpExposurePolicy(policy: PeerIpExposurePolicy) {
+        prefs.edit().putString(KEY_PEER_IP_POLICY, policy.key).apply()
+        _peerIpExposurePolicy.value = policy
+    }
+
     private val _duressWipe = MutableStateFlow(prefs.getBoolean(KEY_DURESS_WIPE, false))
     /**
      * When true, the decoy PIN doesn't just show an empty app — it triggers a full
@@ -211,6 +225,31 @@ class AuroraSettings @Inject constructor(
         private const val KEY_DEVELOPER       = "developer_mode"
         private const val KEY_SHADOWMESH      = "shadowmesh_enabled"
         private const val KEY_BLOCKED         = "blocked_nodes"
+        private const val KEY_PEER_IP_POLICY  = "peer_ip_policy"
+    }
+}
+
+/**
+ * Who may learn this device's IP address. Direct paths (TCP, and WebRTC host/server-reflexive
+ * ICE candidates) reveal it to the peer; relayed paths (the blind relay, TURN-relayed ICE)
+ * reveal it only to our own server. Defaults to [ALWAYS_P2P]: a relay-only mode needs a
+ * TURN server for calls, so it is opt-in.
+ */
+enum class PeerIpExposurePolicy(val key: String, val label: String) {
+    STRICT_RELAY_ONLY("strict_relay", "Never — always relay"),
+    VERIFIED_CONTACTS_ONLY("verified_only", "Verified contacts only"),
+    ALWAYS_P2P("always_p2p", "Any contact (fastest)");
+
+    /** True if a direct connection may reveal our IP to a contact in this verification state. */
+    fun allowsDirect(mutuallyVerified: Boolean): Boolean = when (this) {
+        ALWAYS_P2P -> true
+        VERIFIED_CONTACTS_ONLY -> mutuallyVerified
+        STRICT_RELAY_ONLY -> false
+    }
+
+    companion object {
+        fun fromKey(key: String?): PeerIpExposurePolicy =
+            entries.firstOrNull { it.key == key } ?: ALWAYS_P2P
     }
 }
 

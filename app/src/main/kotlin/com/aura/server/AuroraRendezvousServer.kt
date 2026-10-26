@@ -272,7 +272,11 @@ class AuroraRendezvousServer(
         val spk = json.optJSONObject("spk") ?: return jsonError(Response.Status.BAD_REQUEST, "missing spk")
         val opksArr = json.optJSONArray("opks") ?: JSONArray()
         val opks = (0 until opksArr.length()).mapNotNull { opksArr.optJSONObject(it)?.toString() }
-        prekeyDir.publish(nodeIdHex, spk.toString(), opks, System.currentTimeMillis())
+        // The publisher's hybrid signing key, served with the bundle so scanners can verify the
+        // prekeys post-quantum (they check it against the nodeId; it's opaque to us).
+        val signPub = json.optString("signPub")
+        if (signPub.isEmpty() || signPub.length > 4096) return jsonError(Response.Status.BAD_REQUEST, "missing signPub")
+        prekeyDir.publish(nodeIdHex, spk.toString(), opks, signPub, System.currentTimeMillis())
         return jsonResponse(Response.Status.OK, JSONObject().put("status", "stored"))
     }
 
@@ -282,6 +286,7 @@ class AuroraRendezvousServer(
         val resp = JSONObject()
             .put("spk", JSONObject(bundle.spkJson))
             .put("opk", if (bundle.opkJson != null) JSONObject(bundle.opkJson) else JSONObject.NULL)
+            .put("signPub", bundle.signPub)
         return jsonResponse(Response.Status.OK, resp)
     }
 
@@ -367,5 +372,9 @@ class AuroraRendezvousServer(
         /** Canonical byte string signed to authenticate a signal-queue drain. */
         fun drainMessage(nodeIdHex: String, timestampMs: Long): ByteArray =
             "aura-drain-v1|$nodeIdHex|$timestampMs".toByteArray(Charsets.UTF_8)
+
+        /** Canonical byte string signed to answer a blind-relay connection challenge. */
+        fun relayMessage(nodeIdHex: String, nonce: String): ByteArray =
+            "aura-relay-v1|$nodeIdHex|$nonce".toByteArray(Charsets.UTF_8)
     }
 }

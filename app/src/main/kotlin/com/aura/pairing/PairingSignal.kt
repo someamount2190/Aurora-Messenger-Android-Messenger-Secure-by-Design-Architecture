@@ -56,8 +56,4 @@ class PairingSignal @Inject constructor(
     } catch (e: Exception) {
         false
     }
-
-    /** Verify an Ed25519 signature over raw [message] bytes (prekey-bundle signatures). */
-    suspend fun verifyEdBytes(message: ByteArray, ed25519Pub: ByteArray, sig: ByteArray): Boolean =
-        signer.verifyEd25519Only(message, sig, ed25519Pub).getOrElse { false }
 }

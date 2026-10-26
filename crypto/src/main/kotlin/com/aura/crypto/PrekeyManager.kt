@@ -56,10 +56,12 @@ class PrekeyManager(
 
     /**
      * Ensure a current SPK and a full OPK pool exist, prune expired SPKs, and return
-     * the signed public bundle JSON to publish: `{ spk:{id,pub,sig}, opks:[{id,pub,sig}] }`.
-     * Each `pub` is the hybrid public key bytes; each `sig` is an Ed25519 signature by
-     * our identity key over [prekeyMessage] (verifiable by a scanner from the QR's
-     * Ed25519 key alone, before the peer's Dilithium key is known).
+     * the signed public bundle JSON to publish:
+     * `{ spk:{id,pub,sig}, opks:[{id,pub,sig}], signPub }`.
+     * Each `pub` is the hybrid public key bytes; each `sig` is a hybrid (ML-DSA-65 +
+     * Ed25519) signature by our identity key over [prekeyMessage]. `signPub` is our full
+     * hybrid signing public key: the QR has no room for the ML-DSA half, so a scanner takes
+     * it from here and checks it against the nodeId (see [PrekeyVerifier]).
      */
     suspend fun publicBundle(identity: NodeIdentity): JSONObject = mutex.withLock {
         ensureSpkLocked()
@@ -71,6 +73,7 @@ class PrekeyManager(
         JSONObject()
             .put("spk", prekeyJson(nodeId, KIND_SPK, spk, identity))
             .put("opks", JSONArray().apply { opks.forEach { put(prekeyJson(nodeId, KIND_OPK, it, identity)) } })
+            .put("signPub", b64(identity.publicPart.signingPublicKey.toBytes()))
     }
 
     /**
@@ -122,8 +125,10 @@ class PrekeyManager(
         nodeId: String, kind: String, e: PrekeyRecord, identity: NodeIdentity
     ): JSONObject {
         val pubB64 = b64(hybridPub(e).toBytes())
-        val sig = signer.signEd25519Only(
-            prekeyMessage(nodeId, kind, e.prekeyId, pubB64),
+        val msg = prekeyMessage(nodeId, kind, e.prekeyId, pubB64)
+        // Hybrid-signed (ML-DSA-65 + Ed25519): forging a prekey requires breaking both.
+        val sig = signer.sign(
+            msg,
             identity.privatePart.signingPrivateKey
         ).getOrThrow()
         return JSONObject().put("id", e.prekeyId).put("pub", pubB64).put("sig", b64(sig))

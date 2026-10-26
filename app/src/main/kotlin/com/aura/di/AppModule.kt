@@ -6,6 +6,7 @@ import com.aura.crypto.HybridKem
 import com.aura.crypto.HybridSigner
 import com.aura.crypto.PrekeyManager
 import com.aura.crypto.PrekeyStore
+import com.aura.crypto.PrekeyVerifier
 import com.aura.crypto.SymmetricCipher
 import com.aura.db.AuroraDatabase
 import com.aura.db.ContactDao
@@ -37,6 +38,9 @@ object AppModule {
 
     @Provides @Singleton
     fun provideSymmetricCipher(): SymmetricCipher = SymmetricCipher()
+
+    @Provides @Singleton
+    fun providePrekeyVerifier(signer: HybridSigner, hkdf: Hkdf): PrekeyVerifier = PrekeyVerifier(signer, hkdf)
 
     @Provides @Singleton
     fun provideDatabase(

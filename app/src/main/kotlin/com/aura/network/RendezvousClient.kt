@@ -353,7 +353,39 @@ class RendezvousClient @Inject constructor(
                         spkSig = Base64.decode(spk.getString("sig"), Base64.NO_WRAP),
                         opkId  = opk?.getString("id"),
                         opkPub = opk?.let { HybridPublicKey.fromBytes(Base64.decode(it.getString("pub"), Base64.NO_WRAP)) },
-                        opkSig = opk?.let { Base64.decode(it.getString("sig"), Base64.NO_WRAP) }
+                        opkSig = opk?.let { Base64.decode(it.getString("sig"), Base64.NO_WRAP) },
+                        signPub = j.optString("signPub").takeIf { it.isNotEmpty() }
+                            ?.let { Base64.decode(it, Base64.NO_WRAP) }
+                    )
+                }
+            }
+        }
+
+    /**
+     * Fetch short-lived ephemeral Coturn credentials (RFC 7635) from the rendezvous server.
+     * Returns null if the server doesn't support TURN or credentials could not be obtained.
+     */
+    override suspend fun getTurnCredentials(serverBaseUrl: String, identity: NodeIdentity): Result<TurnCredentials?> =
+        withContext(ioDispatcher) {
+            runCatching {
+                val nodeIdHex = identity.nodeId.toHex()
+                val request = Request.Builder()
+                    .url("$serverBaseUrl/turn-credentials/$nodeIdHex")
+                    .signedDrainAuth(identity)
+                    .get()
+                    .build()
+                http.newCall(request).execute().use { resp ->
+                    if (resp.code == 404 || resp.code == 401) return@use null
+                    val body = resp.body?.string().orEmpty()
+                    check(resp.isSuccessful) { "turn creds failed: HTTP ${resp.code}" }
+                    val json = JSONObject(body)
+                    val urisArray = json.getJSONArray("uris")
+                    val uris = (0 until urisArray.length()).map { urisArray.getString(it) }
+                    TurnCredentials(
+                        username = json.getString("username"),
+                        password = json.getString("password"),
+                        ttlSeconds = json.optLong("ttlSeconds", 900L),
+                        uris = uris
                     )
                 }
             }

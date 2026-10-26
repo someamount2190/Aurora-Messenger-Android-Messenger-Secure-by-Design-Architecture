@@ -81,7 +81,14 @@ class WebRtcSession(
     private val _remoteVideo = MutableStateFlow<VideoTrack?>(null)
     val remoteVideo: StateFlow<VideoTrack?> = _remoteVideo
 
+    private var customIceServers: List<PeerConnection.IceServer>? = null
+
     fun setVideoEnabled(enabled: Boolean) { _videoEnabled.value = enabled }
+
+    /** Configure custom ICE servers (e.g. ephemeral Coturn credentials for CGNAT traversal). */
+    fun setIceServers(servers: List<PeerConnection.IceServer>) {
+        customIceServers = servers
+    }
 
     /** Clear ICE-buffering state before a new call's signaling begins. */
     fun resetForNewCall() {
@@ -106,19 +113,24 @@ class WebRtcSession(
             .createPeerConnectionFactory()
     }
 
-    /** Create the peer connection (and arm the one-time disposal guard). */
-    fun create() {
+    /**
+     * Create the peer connection (and arm the one-time disposal guard). [relayOnly] limits ICE
+     * to TURN-relayed candidates so the other side never learns our IP.
+     */
+    fun create(relayOnly: Boolean = false) {
         ensureFactory()
-        val iceServers = listOf(
-            // Self-hosted STUN (coturn on the rendezvous droplet, dual-stack, STUN-only) —
-            // matches the data transport and keeps Google out of call setup.
+        val defaultIceServers = listOf(
+            // Self-hosted STUN on deconflicted turn subdomain and rendezvous droplet
+            PeerConnection.IceServer.builder("stun:turn.auroramessenger.com:3478").createIceServer(),
             PeerConnection.IceServer.builder("stun:api.auroramessenger.com:3478").createIceServer()
         )
+        val iceServers = customIceServers?.takeIf { it.isNotEmpty() } ?: defaultIceServers
         val config = PeerConnection.RTCConfiguration(iceServers).apply {
             sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN
             // Keep gathering candidates across the call so a network change (Wi-Fi<->cellular)
             // surfaces fresh local candidates that ICE can switch to / restart onto.
             continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY
+            if (relayOnly) iceTransportsType = PeerConnection.IceTransportsType.RELAY
         }
         android.util.Log.i("AuroraCall", "PC create: iceServers=${iceServers.flatMap { it.urls }}")
         disposed.set(false)   // a live peer connection now exists to tear down exactly once
@@ -164,9 +176,13 @@ class WebRtcSession(
         peerConnection?.addTrack(localAudioTrack)
 
         // Video (front camera) — skipped entirely for a voice-only call.
-        if (!video) return
+        if (!video) {
+            configureMediaPacing(video = false)
+            return
+        }
         val capturer = createCameraCapturer() ?: run {
             android.util.Log.w("AuroraCall", "no camera capturer — video track skipped")
+            configureMediaPacing(video = false)
             return
         }
         videoCapturer = capturer
@@ -177,6 +193,7 @@ class WebRtcSession(
         localVideoTrack = track
         _localVideo.value = track
         peerConnection?.addTrack(track)
+        configureMediaPacing(video = true)
         // Start the camera OFF the call-setup critical path. createOffer only needs the
         // track present (for the SDP m-line), not live frames — opening the camera (~0.5s)
         // must not delay the offer/ring. Capture starts in parallel; frames flow into the
@@ -208,11 +225,11 @@ class WebRtcSession(
 
     suspend fun createOffer(): SessionDescription = suspendSdp { obs ->
         peerConnection?.createOffer(obs, MediaConstraints())
-    }
+    }.let { SessionDescription(it.type, enforcePacingConstraints(it.description)) }
 
     suspend fun createAnswer(): SessionDescription = suspendSdp { obs ->
         peerConnection?.createAnswer(obs, MediaConstraints())
-    }
+    }.let { SessionDescription(it.type, enforcePacingConstraints(it.description)) }
 
     /**
      * Create an offer that forces a fresh ICE gathering (new ufrag/pwd) so a dropped
@@ -223,7 +240,7 @@ class WebRtcSession(
         peerConnection?.createOffer(obs, MediaConstraints().apply {
             mandatory.add(MediaConstraints.KeyValuePair("IceRestart", "true"))
         })
-    }
+    }.let { SessionDescription(it.type, enforcePacingConstraints(it.description)) }
 
     fun setLocalDescription(sdp: SessionDescription) {
         peerConnection?.setLocalDescription(SimpleSdpObserver(), sdp)
@@ -312,5 +329,92 @@ class WebRtcSession(
         _videoEnabled.value = true
         remoteDescSet = false
         pendingRemoteIce.clear()
+    }
+
+    /**
+     * Configure decoupled pacing parameters on RTP senders (RT-06 Remediation):
+     * rigid 20ms pacing for audio, and leaky-bucket burst pacing up to 2.5 Mbps for video.
+     */
+    private fun configureMediaPacing(video: Boolean) {
+        val senders = peerConnection?.senders ?: return
+        for (sender in senders) {
+            val track = sender.track() ?: continue
+            val params = sender.parameters ?: continue
+            if (track.kind() == "video" && video) {
+                for (enc in params.encodings) {
+                    enc.maxBitrateBps = MAX_VIDEO_BITRATE_BPS
+                    enc.minBitrateBps = MIN_VIDEO_BITRATE_BPS
+                }
+                sender.parameters = params
+            } else if (track.kind() == "audio") {
+                for (enc in params.encodings) {
+                    enc.maxBitrateBps = AUDIO_CBR_BITRATE_BPS
+                }
+                sender.parameters = params
+            }
+        }
+    }
+
+    companion object {
+        const val MAX_VIDEO_BITRATE_BPS = 2_500_000
+        const val MIN_VIDEO_BITRATE_BPS = 300_000
+        const val AUDIO_CBR_BITRATE_BPS = 64_000
+
+        /** Session bandwidth caps (b=AS, kbps) written into each media section. */
+        private const val AUDIO_AS_KBPS = 64
+        private const val VIDEO_AS_KBPS = 2500
+
+        /**
+         * Enforces Opus CBR audio and per-media bandwidth caps on a local SDP. Works line by
+         * line so the session description stays well-formed: each audio/video section gets
+         * exactly one `b=AS` line, placed after its `i=`/`c=` lines as RFC 4566 §5 requires.
+         * Idempotent, and preserves the input's line ending.
+         */
+        fun enforcePacingConstraints(sdp: String): String {
+            val eol = if (sdp.contains("\r\n")) "\r\n" else "\n"
+            val out = ArrayList<String>()
+            var section = ArrayList<String>()
+            fun flush() {
+                val kbps = when {
+                    section.firstOrNull()?.startsWith("m=audio ") == true -> AUDIO_AS_KBPS
+                    section.firstOrNull()?.startsWith("m=video ") == true -> VIDEO_AS_KBPS
+                    else -> null
+                }
+                if (kbps != null) {
+                    section.removeAll { it.startsWith("b=AS:") }
+                    var at = 1
+                    while (at < section.size && (section[at].startsWith("i=") || section[at].startsWith("c="))) at++
+                    section.add(at, "b=AS:$kbps")
+                }
+                out.addAll(section)
+                section = ArrayList()
+            }
+            for (line in enforceOpusCbr(sdp).split(eol)) {
+                if (line.startsWith("m=")) flush()
+                section.add(line)
+            }
+            flush()
+            return out.joinToString(eol)
+        }
+
+        /**
+         * Adds `cbr=1` to the Opus format parameters (adding an `a=fmtp` line after its
+         * `a=rtpmap` if there is none), asking the peer to send constant-bitrate audio so packet
+         * sizes don't track speech. Idempotent, and preserves the input's line ending.
+         */
+        fun enforceOpusCbr(sdp: String): String {
+            val pt = Regex("""a=rtpmap:(\d+) opus/48000""", RegexOption.IGNORE_CASE)
+                .find(sdp)?.groupValues?.get(1) ?: return sdp
+            val eol = if (sdp.contains("\r\n")) "\r\n" else "\n"
+            val lines = sdp.split(eol).toMutableList()
+            val fmtp = lines.indexOfFirst { it.startsWith("a=fmtp:$pt ") }
+            if (fmtp >= 0) {
+                if (lines[fmtp].split(';', ' ').none { it == "cbr=1" }) lines[fmtp] = lines[fmtp] + ";cbr=1"
+            } else {
+                val rtpmap = lines.indexOfFirst { it.startsWith("a=rtpmap:$pt ") }
+                lines.add(rtpmap + 1, "a=fmtp:$pt cbr=1")
+            }
+            return lines.joinToString(eol)
+        }
     }
 }

@@ -36,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.aura.server.RendezvousServerController
 import com.aura.settings.DisappearingTimer
+import com.aura.settings.PeerIpExposurePolicy
 import com.aura.settings.ThemeMode
 import com.aura.settings.ThemePalette
 
@@ -87,6 +88,7 @@ internal fun AppearanceSection(viewModel: SettingsViewModel) {
 @Composable
 internal fun PrivacySection(viewModel: SettingsViewModel) {
     val disappearing by viewModel.settings.disappearingTimer.collectAsState()
+    val ipPolicy by viewModel.settings.peerIpExposurePolicy.collectAsState()
     SectionTitle("Privacy")
     Card {
         Column(Modifier.padding(16.dp)) {
@@ -102,6 +104,24 @@ internal fun PrivacySection(viewModel: SettingsViewModel) {
                     label = timer.label,
                     selected = disappearing == timer,
                     onClick = { viewModel.settings.setDisappearingTimer(timer) }
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+            Text("Who can see your IP address", style = MaterialTheme.typography.titleSmall)
+            Text(
+                "Direct connections are fastest but reveal your IP address to the contact. " +
+                    "Relayed connections hide it from contacts (the Aurora server still sees it); " +
+                    "calls over a relay need a TURN server.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(8.dp))
+            PeerIpExposurePolicy.entries.forEach { policy ->
+                OptionRow(
+                    label = policy.label,
+                    selected = ipPolicy == policy,
+                    onClick = { viewModel.settings.setPeerIpExposurePolicy(policy) }
                 )
             }
         }
