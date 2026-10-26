@@ -77,8 +77,12 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      # The legacy "tools" package (in the action's default list) no longer exists in
+      # current cmdline-tools; Gradle installs the platform and build-tools itself.
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v3
