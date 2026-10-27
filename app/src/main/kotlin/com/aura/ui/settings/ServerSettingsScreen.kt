@@ -179,20 +179,25 @@ fun ServerSettingsScreen(
     }
 
     when (val s = step) {
-        is ServerSettingsViewModel.Step.Warn -> AlertDialog(
-            onDismissRequest = { viewModel.dismiss() },
-            title = { Text(stringResource(R.string.server_warn_title)) },
-            text = { Text(stringResource(R.string.server_warn_body)) },
-            confirmButton = { TextButton(onClick = { viewModel.proceedFromWarning() }) { Text(stringResource(R.string.server_warn_continue)) } },
-            dismissButton = { TextButton(onClick = { viewModel.dismiss() }) { Text(stringResource(R.string.action_cancel)) } }
-        )
+        is ServerSettingsViewModel.Step.Warn -> {
+            com.aura.ui.FilterObscuredTouches()   // FB-5: custom-server consent is tapjacking-sensitive
+            AlertDialog(
+                onDismissRequest = { viewModel.dismiss() },
+                title = { Text(stringResource(R.string.server_warn_title)) },
+                text = { Text(stringResource(R.string.server_warn_body)) },
+                confirmButton = { TextButton(onClick = { viewModel.proceedFromWarning() }) { Text(stringResource(R.string.server_warn_continue)) } },
+                dismissButton = { TextButton(onClick = { viewModel.dismiss() }) { Text(stringResource(R.string.action_cancel)) } }
+            )
+        }
         is ServerSettingsViewModel.Step.Probing -> AlertDialog(
             onDismissRequest = { },
             title = { Text(stringResource(R.string.server_probing)) },
             text = { CircularProgressIndicator() },
             confirmButton = {}
         )
-        is ServerSettingsViewModel.Step.Confirm -> AlertDialog(
+        is ServerSettingsViewModel.Step.Confirm -> {
+            com.aura.ui.FilterObscuredTouches()   // FB-5: "trust this server" is tapjacking-sensitive
+            AlertDialog(
             onDismissRequest = { viewModel.dismiss() },
             title = { Text(stringResource(R.string.server_trust_title)) },
             text = {
@@ -207,7 +212,8 @@ fun ServerSettingsScreen(
             },
             confirmButton = { TextButton(onClick = { viewModel.confirmTrust() }) { Text(stringResource(R.string.server_trust_confirm)) } },
             dismissButton = { TextButton(onClick = { viewModel.dismiss() }) { Text(stringResource(R.string.action_cancel)) } }
-        )
+            )
+        }
         is ServerSettingsViewModel.Step.Applied -> { onBack(); viewModel.dismiss() }
         else -> Unit
     }

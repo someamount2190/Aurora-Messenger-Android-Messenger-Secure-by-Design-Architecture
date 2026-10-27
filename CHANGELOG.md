@@ -39,6 +39,10 @@ contacts are unaffected), and the app needs the matching rendezvous server.
 - Bouncy Castle 1.84 → 1.85 (CVE-2026-8763, CVE-2026-13506; neither was reachable from Aurora).
 
 ### Security
+- **Tapjacking protection on sensitive taps.** Aurora now drops touches that pass through a window
+  another app has drawn over it, so a malicious overlay can't trick you into confirming a safety-number
+  match, answering a call, entering your PIN, or trusting a custom server. (Aurora's own floating call
+  bubble only appears while the app is in the background, so it never interferes.)
 - **You can point Aurora at your own rendezvous server.** Settings → Network → Server lets you use a
   server you run instead of the default. It is **HTTPS-only**, shows a plain-language warning that the
   operator can see when you're online and who you connect to (your messages and calls stay

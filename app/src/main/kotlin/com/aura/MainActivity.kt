@@ -57,6 +57,12 @@ class MainActivity : ComponentActivity() {
         // emulator/dev testing; release builds (not debuggable) keep it secure.
         if ((applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) == 0)
             window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+        // Tapjacking guard (FB-5): drop touches that pass through a window drawn over ours by
+        // another app, so a malicious overlay can't trick a tap on a sensitive control (SAS
+        // confirm, Answer-call, custom-server trust). Aurora's own call bubble is a background-
+        // only overlay, so this never fires while the app is in the foreground. Security dialogs
+        // live in their own windows and set the same flag themselves (see FilterObscuredTouches).
+        window.decorView.filterTouchesWhenObscured = true
         // Fresh installs are walked through permissions by the onboarding gate
         // (com.aura.ui.onboarding.PermissionsScreen), which owns the notification prompt.
         // Only nudge already-onboarded upgrades that predate that gate here.

@@ -340,6 +340,7 @@ internal fun PinDialog(
     onDismiss: () -> Unit
 ) {
     var pin by remember { mutableStateOf("") }
+    com.aura.ui.FilterObscuredTouches()   // FB-5: PIN entry is tapjacking-sensitive
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
