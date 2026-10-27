@@ -211,25 +211,11 @@ class TcpMessageServer @Inject constructor(
         val port = frame.optInt("port", -1)
         if (ip.isEmpty() || port !in 1..65535) return
 
-        // SSRF guard: resolve the target ONCE and only relay to a public unicast
-        // address. A relay node must never be usable to reach loopback, private
-        // (RFC-1918), link-local or multicast hosts — otherwise it becomes a proxy
-        // into the relayer's internal network. Connecting to the resolved address
-        // (not the string) also blocks DNS-rebinding.
+        // SSRF guard: resolve the target ONCE (connecting to the resolved address, not the
+        // string, also blocks DNS-rebinding) and relay only to a public unicast address. The
+        // full range policy lives in RelayTargetPolicy so it can be unit-tested exhaustively.
         val targetAddr = try { java.net.InetAddress.getByName(ip) } catch (e: Exception) { return }
-        if (targetAddr.isLoopbackAddress || targetAddr.isAnyLocalAddress ||
-            targetAddr.isLinkLocalAddress || targetAddr.isSiteLocalAddress ||
-            targetAddr.isMulticastAddress) return
-        // isSiteLocalAddress only covers the deprecated IPv6 fec0::/10 — explicitly reject the
-        // modern Unique-Local range fc00::/7, and conservatively refuse IPv4-mapped IPv6, so the
-        // relay can't be steered into an internal IPv6 network.
-        val raw = targetAddr.address
-        if (raw.size == 16) {
-            if ((raw[0].toInt() and 0xFE) == 0xFC) return                                  // fc00::/7 ULA
-            val v4Mapped = (0..9).all { raw[it].toInt() == 0 } &&
-                (raw[10].toInt() and 0xFF) == 0xFF && (raw[11].toInt() and 0xFF) == 0xFF
-            if (v4Mapped) return
-        }
+        if (RelayTargetPolicy.isDisallowed(targetAddr)) return
 
         val payload = Base64.decode(frame.optString("payload"), Base64.NO_WRAP)
 

@@ -11,7 +11,10 @@ import org.junit.Test
  */
 class CallAnswerTokenTest {
 
-    private val token = "Zm9vYmFyYmF6cXV4MTIzNA"   // a realistic URL-safe token
+    // A low-entropy, obviously-fake stand-in (real tokens are 128-bit random from
+    // newAnswerToken; a random-looking literal here would trip the gitleaks secret scanner).
+    // matches() is a byte comparison, so the exact value doesn't matter to the logic.
+    private val token = "call-token-sample-not-a-secret"
 
     @Test fun exactMatchAccepts() {
         assertTrue(CallAnswerToken.matches(token, token))
