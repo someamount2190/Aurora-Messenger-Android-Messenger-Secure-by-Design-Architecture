@@ -2,6 +2,8 @@ package com.aura.settings
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.annotation.StringRes
+import com.aura.R
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -235,10 +237,10 @@ class AuroraSettings @Inject constructor(
  * reveal it only to our own server. Defaults to [ALWAYS_P2P]: a relay-only mode needs a
  * TURN server for calls, so it is opt-in.
  */
-enum class PeerIpExposurePolicy(val key: String, val label: String) {
-    STRICT_RELAY_ONLY("strict_relay", "Never — always relay"),
-    VERIFIED_CONTACTS_ONLY("verified_only", "Verified contacts only"),
-    ALWAYS_P2P("always_p2p", "Any contact (fastest)");
+enum class PeerIpExposurePolicy(val key: String, @StringRes val labelRes: Int) {
+    STRICT_RELAY_ONLY("strict_relay", R.string.ip_policy_strict_relay),
+    VERIFIED_CONTACTS_ONLY("verified_only", R.string.ip_policy_verified_only),
+    ALWAYS_P2P("always_p2p", R.string.ip_policy_always_p2p);
 
     /** True if a direct connection may reveal our IP to a contact in this verification state. */
     fun allowsDirect(mutuallyVerified: Boolean): Boolean = when (this) {
@@ -254,10 +256,10 @@ enum class PeerIpExposurePolicy(val key: String, val label: String) {
 }
 
 /** Appearance preference. SYSTEM follows the OS light/dark setting. */
-enum class ThemeMode(val key: String, val label: String) {
-    SYSTEM("system", "System default"),
-    LIGHT ("light",  "Light"),
-    DARK  ("dark",   "Dark");
+enum class ThemeMode(val key: String, @StringRes val labelRes: Int) {
+    SYSTEM("system", R.string.theme_system),
+    LIGHT ("light",  R.string.theme_light),
+    DARK  ("dark",   R.string.theme_dark);
 
     companion object {
         fun fromKey(key: String?): ThemeMode = entries.firstOrNull { it.key == key } ?: SYSTEM
@@ -268,9 +270,9 @@ enum class ThemeMode(val key: String, val label: String) {
  * Colour palette. AURORA is the current neon-aurora look; CHERISH restores the
  * original deep-plum / soft-rose theme (kept as a nostalgic alternative).
  */
-enum class ThemePalette(val key: String, val label: String) {
-    AURORA ("aurora",  "Aurora"),
-    CHERISH("cherish", "Cherish");
+enum class ThemePalette(val key: String, @StringRes val labelRes: Int) {
+    AURORA ("aurora",  R.string.palette_aurora),
+    CHERISH("cherish", R.string.palette_cherish);
 
     companion object {
         fun fromKey(key: String?): ThemePalette = entries.firstOrNull { it.key == key } ?: AURORA
@@ -278,11 +280,11 @@ enum class ThemePalette(val key: String, val label: String) {
 }
 
 /** Per-app default disappearing-message timer (Phase 6 wires the actual deletion). */
-enum class DisappearingTimer(val key: String, val label: String) {
-    OFF      ("off", "Off"),
-    ONE_HOUR ("1h",  "1 hour"),
-    ONE_DAY  ("24h", "24 hours"),
-    ONE_WEEK ("7d",  "7 days");
+enum class DisappearingTimer(val key: String, @StringRes val labelRes: Int) {
+    OFF      ("off", R.string.timer_off),
+    ONE_HOUR ("1h",  R.string.timer_1h),
+    ONE_DAY  ("24h", R.string.timer_24h),
+    ONE_WEEK ("7d",  R.string.timer_7d);
 
     companion object {
         fun fromKey(key: String?): DisappearingTimer =

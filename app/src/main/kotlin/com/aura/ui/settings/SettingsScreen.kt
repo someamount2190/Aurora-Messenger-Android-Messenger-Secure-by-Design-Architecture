@@ -1,5 +1,7 @@
 package com.aura.ui.settings
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -27,16 +29,16 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.aura.R
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -70,9 +72,9 @@ fun SettingsScreen(
                 val bytes = viewModel.buildBackup(pass)
                 ctx.contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
             }.onSuccess {
-                android.widget.Toast.makeText(ctx, "Backup saved", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(ctx, R.string.backup_saved, android.widget.Toast.LENGTH_SHORT).show()
             }.onFailure {
-                android.widget.Toast.makeText(ctx, "Backup failed", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(ctx, R.string.backup_failed, android.widget.Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -88,10 +90,10 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Settings") },
+                title = { Text(stringResource(R.string.settings_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 }
             )
@@ -129,7 +131,7 @@ fun SettingsScreen(
             Spacer(Modifier.height(8.dp))
             androidx.compose.material3.HorizontalDivider()
             Text(
-                text = "Aurora · ${com.aura.BuildConfig.VERSION_NAME}\nPost-quantum · end-to-end encrypted",
+                text = stringResource(R.string.settings_footer, com.aura.BuildConfig.VERSION_NAME),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -148,15 +150,15 @@ fun SettingsScreen(
 
     if (showSetPin) {
         PinDialog(
-            title = "Set app-lock PIN",
+            title = stringResource(R.string.pin_set_lock),
             onConfirm = { viewModel.setPin(it); showSetPin = false },
             onDismiss = { showSetPin = false }
         )
     }
     if (showSetDecoy) {
         PinDialog(
-            title = "Set decoy PIN",
-            subtitle = "Entering this PIN opens an empty app — no contacts, no messages.",
+            title = stringResource(R.string.pin_set_decoy),
+            subtitle = stringResource(R.string.pin_decoy_desc),
             onConfirm = { viewModel.setDecoyPin(it); showSetDecoy = false },
             onDismiss = { showSetDecoy = false }
         )
@@ -165,16 +167,16 @@ fun SettingsScreen(
     if (showClearDialog) {
         AlertDialog(
             onDismissRequest = { showClearDialog = false },
-            title = { Text("Clear all data?") },
-            text = { Text("This wipes your identity keys, contacts, and settings. A new identity is generated on next launch. This cannot be undone.") },
+            title = { Text(stringResource(R.string.clear_title)) },
+            text = { Text(stringResource(R.string.clear_body)) },
             confirmButton = {
                 TextButton(onClick = {
                     showClearDialog = false
                     viewModel.clearAllData()
-                }) { Text("Wipe everything", color = MaterialTheme.colorScheme.error) }
+                }) { Text(stringResource(R.string.clear_confirm), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
-                TextButton(onClick = { showClearDialog = false }) { Text("Cancel") }
+                TextButton(onClick = { showClearDialog = false }) { Text(stringResource(R.string.action_cancel)) }
             }
         )
     }
@@ -184,22 +186,22 @@ fun SettingsScreen(
         var p2 by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { showExportDialog = false },
-            title = { Text("Backup passphrase") },
+            title = { Text(stringResource(R.string.backup_pass_title)) },
             text = {
                 Column {
                     Text(
-                        "Choose a strong passphrase. You'll need it to restore — it can't be recovered if you lose it.",
+                        stringResource(R.string.backup_pass_desc),
                         style = MaterialTheme.typography.bodySmall
                     )
                     Spacer(Modifier.height(12.dp))
                     OutlinedTextField(
-                        value = p1, onValueChange = { p1 = it }, label = { Text("Passphrase") },
+                        value = p1, onValueChange = { p1 = it }, label = { Text(stringResource(R.string.passphrase)) },
                         singleLine = true, visualTransformation = PasswordVisualTransformation(),
                         modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(Modifier.height(8.dp))
                     OutlinedTextField(
-                        value = p2, onValueChange = { p2 = it }, label = { Text("Confirm") },
+                        value = p2, onValueChange = { p2 = it }, label = { Text(stringResource(R.string.passphrase_confirm)) },
                         singleLine = true, visualTransformation = PasswordVisualTransformation(),
                         isError = p2.isNotEmpty() && p1 != p2, modifier = Modifier.fillMaxWidth()
                     )
@@ -212,26 +214,25 @@ fun SettingsScreen(
                         createBackupLauncher.launch("aurora-backup.aurabk")
                     },
                     enabled = p1.length >= 8 && p1 == p2
-                ) { Text("Export") }
+                ) { Text(stringResource(R.string.action_export)) }
             },
-            dismissButton = { TextButton(onClick = { showExportDialog = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { showExportDialog = false }) { Text(stringResource(R.string.action_cancel)) } }
         )
     }
 
     pendingImportBytes?.let { bytes ->
         AlertDialog(
             onDismissRequest = { pendingImportBytes = null; importPass = "" },
-            title = { Text("Restore backup") },
+            title = { Text(stringResource(R.string.restore_title)) },
             text = {
                 Column {
                     Text(
-                        "This replaces your current identity and contacts, then restarts the app. " +
-                            "Enter the backup's passphrase.",
+                        stringResource(R.string.restore_desc),
                         style = MaterialTheme.typography.bodySmall
                     )
                     Spacer(Modifier.height(12.dp))
                     OutlinedTextField(
-                        value = importPass, onValueChange = { importPass = it }, label = { Text("Passphrase") },
+                        value = importPass, onValueChange = { importPass = it }, label = { Text(stringResource(R.string.passphrase)) },
                         singleLine = true, visualTransformation = PasswordVisualTransformation(),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -244,9 +245,9 @@ fun SettingsScreen(
                         viewModel.restoreBackup(bytes, pass)
                     },
                     enabled = importPass.isNotEmpty()
-                ) { Text("Restore") }
+                ) { Text(stringResource(R.string.action_restore)) }
             },
-            dismissButton = { TextButton(onClick = { pendingImportBytes = null; importPass = "" }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { pendingImportBytes = null; importPass = "" }) { Text(stringResource(R.string.action_cancel)) } }
         )
     }
 }

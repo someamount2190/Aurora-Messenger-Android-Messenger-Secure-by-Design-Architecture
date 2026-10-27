@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Button
@@ -21,23 +22,24 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.aura.R
 import com.aura.security.AppLock
 import com.aura.security.SecureWipe
 import com.aura.settings.AuroraSettings
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @HiltViewModel
 class LockViewModel @Inject constructor(
@@ -90,10 +92,10 @@ fun LockScreen(viewModel: LockViewModel = hiltViewModel()) {
             tint = MaterialTheme.colorScheme.primary
         )
         Spacer(Modifier.height(16.dp))
-        Text("Aurora is locked", style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(R.string.lock_title), style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(8.dp))
         Text(
-            "Enter your PIN",
+            stringResource(R.string.lock_enter_pin),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -101,7 +103,7 @@ fun LockScreen(viewModel: LockViewModel = hiltViewModel()) {
         OutlinedTextField(
             value = pin,
             onValueChange = { pin = it.filter { c -> c.isDigit() }; error = false },
-            label = { Text("PIN") },
+            label = { Text(stringResource(R.string.lock_pin)) },
             isError = error,
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
@@ -110,7 +112,7 @@ fun LockScreen(viewModel: LockViewModel = hiltViewModel()) {
         )
         if (lockedOut) {
             Text(
-                "Too many attempts. Try again in ${remainingSec}s",
+                stringResource(R.string.lock_too_many, remainingSec),
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall,
                 textAlign = TextAlign.Center,
@@ -118,7 +120,7 @@ fun LockScreen(viewModel: LockViewModel = hiltViewModel()) {
             )
         } else if (error) {
             Text(
-                "Incorrect PIN",
+                stringResource(R.string.lock_incorrect),
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall,
                 textAlign = TextAlign.Center,
@@ -139,7 +141,7 @@ fun LockScreen(viewModel: LockViewModel = hiltViewModel()) {
             modifier = Modifier.fillMaxWidth(),
             enabled = pin.length >= 4 && !lockedOut
         ) {
-            Text("Unlock")
+            Text(stringResource(R.string.lock_unlock))
         }
     }
 }

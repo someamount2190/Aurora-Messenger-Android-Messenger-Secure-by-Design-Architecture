@@ -7,7 +7,6 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Call
@@ -45,13 +45,36 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.aura.R
+import com.aura.call.CallLog
 import com.aura.db.MessageEntity
 import com.aura.media.ByteArrayMediaDataSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 private val REACTION_EMOJI = listOf("❤️", "😂", "👍", "😮", "😢", "🔥")
+
+/**
+ * Localized label for a call-log row, built from the stored status rather than the
+ * English `body` written at call time, so it follows the current app language.
+ */
+@Composable
+internal fun callLogLabel(message: MessageEntity): String {
+    val isCaller = message.fromMe
+    return when (message.callStatus) {
+        "answered" -> {
+            val base = stringResource(if (isCaller) R.string.call_outgoing else R.string.call_incoming)
+            message.durationMs?.let { stringResource(R.string.call_with_duration, base, CallLog.formatDuration(it)) } ?: base
+        }
+        "missed"    -> stringResource(R.string.call_missed)
+        "declined"  -> stringResource(R.string.call_declined)
+        "no_answer" -> stringResource(R.string.call_no_answer)
+        "ended"     -> stringResource(R.string.call_ended)
+        else        -> stringResource(R.string.call_generic)
+    }
+}
 
 /** A centered call-log entry in the conversation (missed calls in red). */
 @Composable
@@ -77,7 +100,7 @@ internal fun CallLogRow(message: MessageEntity) {
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(Modifier.width(6.dp))
-                Text(message.body, style = MaterialTheme.typography.bodySmall, color = content)
+                Text(callLogLabel(message), style = MaterialTheme.typography.bodySmall, color = content)
             }
         }
     }
@@ -200,7 +223,7 @@ internal fun MessageBubble(
             }
             HorizontalDivider()
             DropdownMenuItem(
-                text = { Text("Reply") },
+                text = { Text(stringResource(R.string.msg_reply)) },
                 onClick = { menuOpen = false; onReply() }
             )
         }
@@ -218,7 +241,7 @@ private fun AudioContent(
         IconButton(onClick = onTogglePlay, modifier = Modifier.size(36.dp)) {
             Icon(
                 if (isPlaying) Icons.Default.Stop else Icons.Default.PlayArrow,
-                contentDescription = if (isPlaying) "Stop" else "Play",
+                contentDescription = stringResource(if (isPlaying) R.string.media_stop else R.string.media_play),
                 tint = onColor
             )
         }
@@ -289,14 +312,14 @@ private fun MediaContent(
         if (message.type == "video" && bmp != null) {
             Icon(
                 Icons.Default.PlayCircle,
-                contentDescription = "Video",
+                contentDescription = stringResource(R.string.conv_video),
                 tint = onColor,
                 modifier = Modifier.size(48.dp)
             )
         }
     }
     Text(
-        "Tap to view",
+        stringResource(R.string.msg_tap_to_view),
         style = MaterialTheme.typography.labelSmall,
         color = onColor.copy(alpha = 0.6f)
     )
@@ -315,12 +338,13 @@ private fun videoFrame(bytes: ByteArray): Bitmap? {
     }
 }
 
+@Composable
 private fun formatRemaining(ms: Long): String {
-    val totalSec = ms / 1000
+    val totalSec = (ms / 1000).toInt()
     return when {
-        totalSec < 60      -> "${totalSec}s"
-        totalSec < 3600    -> "${totalSec / 60}m"
-        totalSec < 86400   -> "${totalSec / 3600}h"
-        else               -> "${totalSec / 86400}d"
+        totalSec < 60      -> stringResource(R.string.remaining_seconds, totalSec)
+        totalSec < 3600    -> stringResource(R.string.remaining_minutes, totalSec / 60)
+        totalSec < 86400   -> stringResource(R.string.remaining_hours, totalSec / 3600)
+        else               -> stringResource(R.string.remaining_days, totalSec / 86400)
     }
 }

@@ -40,13 +40,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.aura.R
 import com.aura.crypto.toHex
+import com.aura.di.IoDispatcher
 import com.aura.identity.IdentityStore
 import com.aura.network.AddressDiscovery
 import com.aura.pairing.QrPayload
@@ -57,15 +60,14 @@ import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import dagger.hilt.android.lifecycle.HiltViewModel
-import com.aura.di.IoDispatcher
 import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import javax.inject.Inject
 
 @HiltViewModel
 class MyCodeViewModel @Inject constructor(
@@ -142,9 +144,9 @@ class MyCodeViewModel @Inject constructor(
                 context.contentResolver.openOutputStream(uri)?.use { out ->
                     bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
                 }
-                "Saved to gallery (Pictures/Aurora)"
+                context.getString(R.string.mycode_saved)
             } else {
-                "Could not save image"
+                context.getString(R.string.mycode_save_failed)
             }
             _state.value = _state.value.copy(savedMessage = message)
         }
@@ -196,10 +198,10 @@ fun MyCodeScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (state.hosting) "Host a connection" else "My code") },
+                title = { Text(stringResource(if (state.hosting) R.string.mycode_title_host else R.string.mycode_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 }
             )
@@ -220,7 +222,7 @@ fun MyCodeScreen(
             } else {
                 Image(
                     bitmap = qr.asImageBitmap(),
-                    contentDescription = "My pairing QR code",
+                    contentDescription = stringResource(R.string.mycode_qr_desc),
                     modifier = Modifier
                         .size(300.dp)
                         .clip(RoundedCornerShape(12.dp))
@@ -229,10 +231,7 @@ fun MyCodeScreen(
                 )
                 Spacer(Modifier.height(24.dp))
                 Text(
-                    if (state.hosting)
-                        "Your friend scans this once and connects — no setup on their side.\nThe code carries only your public keys and this device's address."
-                    else
-                        "Have a friend scan this code to pair.\nIt contains only your public keys — never private ones.",
+                    stringResource(if (state.hosting) R.string.mycode_host_desc else R.string.mycode_desc),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -244,7 +243,7 @@ fun MyCodeScreen(
                 Spacer(Modifier.height(8.dp))
                 state.nodeIdHex?.let {
                     Text(
-                        "ID: ${it.take(16)}…",
+                        stringResource(R.string.mycode_id, it.take(16)),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -253,7 +252,7 @@ fun MyCodeScreen(
                 Button(onClick = viewModel::saveToGallery, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Default.Save, contentDescription = null)
                     Spacer(Modifier.height(0.dp))
-                    Text("  Save to gallery")
+                    Text("  " + stringResource(R.string.mycode_save_gallery))
                 }
             }
         }
@@ -264,18 +263,18 @@ fun MyCodeScreen(
 private fun ReachBanner(state: MyCodeViewModel.State) {
     val (text, color) = when (state.reach) {
         AddressDiscovery.Reach.INTERNET -> Pair(
-            "🌐 Reachable over the internet (port mapped via your router). " +
-                "Anyone can scan and connect — even off your Wi-Fi.",
+            stringResource(R.string.reach_internet),
             MaterialTheme.colorScheme.primary
         )
         AddressDiscovery.Reach.LAN_ONLY -> Pair(
-            "📶 Reachable on this Wi-Fi only (${state.lanIp ?: "local"}). " +
-                "Your router didn't allow automatic internet access" +
-                (if (state.publicIp != null) " — for off-network use, forward port 8080 or use a VPS beacon." else "."),
+            stringResource(
+                if (state.publicIp != null) R.string.reach_lan_forward else R.string.reach_lan,
+                state.lanIp ?: stringResource(R.string.reach_local)
+            ),
             MaterialTheme.colorScheme.secondary
         )
         else -> Pair(
-            "⚠ No network address found. Connect to Wi-Fi to host.",
+            stringResource(R.string.reach_none),
             MaterialTheme.colorScheme.error
         )
     }

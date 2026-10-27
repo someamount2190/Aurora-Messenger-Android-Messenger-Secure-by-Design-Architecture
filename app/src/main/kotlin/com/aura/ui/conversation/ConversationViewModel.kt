@@ -8,38 +8,39 @@ import android.provider.MediaStore
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.aura.R
+import com.aura.call.CallController
+import com.aura.call.CallState
 import com.aura.db.ContactDao
 import com.aura.db.ContactEntity
 import com.aura.db.MessageDao
 import com.aura.db.MessageEntity
 import com.aura.db.PairState
-import com.aura.call.CallController
-import com.aura.call.CallState
 import com.aura.di.IoDispatcher
 import com.aura.disappearing.DisappearingMessages
-import com.aura.pairing.PairingCoordinator
 import com.aura.media.ByteArrayMediaDataSource
 import com.aura.media.DecryptedMediaProvider
 import com.aura.media.MediaTransfer
 import com.aura.media.VoiceRecorder
+import com.aura.pairing.PairingCoordinator
 import com.aura.reaction.Reactions
 import com.aura.security.AppLock
 import com.aura.settings.DisappearingTimer
 import com.aura.transport.MessageSender
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.util.UUID
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.UUID
-import javax.inject.Inject
 
 @HiltViewModel
 class ConversationViewModel @Inject constructor(
@@ -172,7 +173,7 @@ class ConversationViewModel @Inject constructor(
                 addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
             context.startActivity(
-                android.content.Intent.createChooser(intent, "Share").apply {
+                android.content.Intent.createChooser(intent, context.getString(R.string.action_share)).apply {
                     addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
             )
@@ -202,9 +203,9 @@ class ConversationViewModel @Inject constructor(
 
     /** A one-line quote for a replied-to message. */
     fun previewOf(m: MessageEntity): String = when (m.type) {
-        "image" -> "📷 Photo"
-        "video" -> "📹 Video"
-        "audio" -> "🎤 Voice message"
+        "image" -> context.getString(R.string.preview_photo)
+        "video" -> context.getString(R.string.preview_video)
+        "audio" -> context.getString(R.string.preview_voice)
         else    -> m.body
     }
 

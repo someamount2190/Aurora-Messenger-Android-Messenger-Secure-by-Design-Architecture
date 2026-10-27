@@ -1,6 +1,8 @@
 package com.aura.pairing
 
+import android.content.Context
 import android.util.Base64
+import com.aura.R
 import com.aura.crypto.HybridCiphertext
 import com.aura.crypto.HybridKem
 import com.aura.crypto.KemRatchetManager
@@ -13,14 +15,16 @@ import com.aura.db.PairState
 import com.aura.identity.IdentityStore
 import com.aura.notify.Notifier
 import com.aura.settings.AuroraSettings
-import org.json.JSONObject
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
+import org.json.JSONObject
 
 /**
  * Receiver side of pairing (they scanned our QR): verify and store an incoming request,
  * accept/reject it, and handle contact teardown (either side). See [PairingCoordinator].
  */
 class ReceiverPairing @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val identityManager: IdentityStore,
     private val kem: HybridKem,
     private val pairingCrypto: PairingCrypto,
@@ -92,7 +96,7 @@ class ReceiverPairing @Inject constructor(
         contactDao.upsert(
             ContactEntity(
                 nodeIdHex = from,
-                displayName = DEFAULT_NAME,
+                displayName = context.getString(R.string.default_contact_name),
                 kemPubB64 = kemB64,
                 ed25519PubB64 = ed25519B64,
                 dilithiumPubB64 = dilithiumB64,

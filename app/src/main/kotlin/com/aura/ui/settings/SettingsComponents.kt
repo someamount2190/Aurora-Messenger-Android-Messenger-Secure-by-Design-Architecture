@@ -1,5 +1,8 @@
 package com.aura.ui.settings
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -33,8 +36,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.aura.R
 import com.aura.server.RendezvousServerController
+import com.aura.settings.AppLanguage
+import com.aura.settings.AppLocale
 import com.aura.settings.DisappearingTimer
 import com.aura.settings.PeerIpExposurePolicy
 import com.aura.settings.ThemeMode
@@ -48,78 +56,103 @@ import com.aura.settings.ThemePalette
 internal fun AppearanceSection(viewModel: SettingsViewModel) {
     val themeMode by viewModel.settings.themeMode.collectAsState()
     val themePalette by viewModel.settings.themePalette.collectAsState()
-    SectionTitle("Appearance")
+    SectionTitle(stringResource(R.string.settings_appearance))
     Card {
         Column(Modifier.padding(16.dp)) {
-            Text("Theme", style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(R.string.settings_theme), style = MaterialTheme.typography.titleSmall)
             Text(
-                "Choose how Aurora looks.",
+                stringResource(R.string.settings_theme_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.height(8.dp))
             ThemeMode.entries.forEach { mode ->
                 OptionRow(
-                    label = mode.label,
+                    label = stringResource(mode.labelRes),
                     selected = themeMode == mode,
                     onClick = { viewModel.setThemeMode(mode) }
                 )
             }
 
             Spacer(Modifier.height(12.dp))
-            Text("Colour palette", style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(R.string.settings_palette), style = MaterialTheme.typography.titleSmall)
             Text(
-                "Aurora is the current look. Cherish brings back our classic plum theme.",
+                stringResource(R.string.settings_palette_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.height(8.dp))
             ThemePalette.entries.forEach { palette ->
                 OptionRow(
-                    label = palette.label,
+                    label = stringResource(palette.labelRes),
                     selected = themePalette == palette,
                     onClick = { viewModel.setThemePalette(palette) }
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+            Text(stringResource(R.string.settings_language), style = MaterialTheme.typography.titleSmall)
+            Text(
+                stringResource(R.string.settings_language_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(8.dp))
+            // Changing the language recreates the Activity, which re-reads the selection.
+            val context = LocalContext.current
+            val language = remember { AppLocale.current(context) }
+            AppLanguage.entries.forEach { lang ->
+                OptionRow(
+                    label = stringResource(lang.labelRes),
+                    selected = language == lang,
+                    onClick = {
+                        if (lang != language) context.findActivity()?.let { AppLocale.set(it, lang) }
+                    }
                 )
             }
         }
     }
 }
 
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
+
 @Composable
 internal fun PrivacySection(viewModel: SettingsViewModel) {
     val disappearing by viewModel.settings.disappearingTimer.collectAsState()
     val ipPolicy by viewModel.settings.peerIpExposurePolicy.collectAsState()
-    SectionTitle("Privacy")
+    SectionTitle(stringResource(R.string.settings_privacy))
     Card {
         Column(Modifier.padding(16.dp)) {
-            Text("Disappearing messages", style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(R.string.settings_disappearing), style = MaterialTheme.typography.titleSmall)
             Text(
-                "Default self-destruct timer for new conversations.",
+                stringResource(R.string.settings_disappearing_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.height(8.dp))
             DisappearingTimer.entries.forEach { timer ->
                 OptionRow(
-                    label = timer.label,
+                    label = stringResource(timer.labelRes),
                     selected = disappearing == timer,
                     onClick = { viewModel.settings.setDisappearingTimer(timer) }
                 )
             }
 
             Spacer(Modifier.height(12.dp))
-            Text("Who can see your IP address", style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(R.string.settings_ip_title), style = MaterialTheme.typography.titleSmall)
             Text(
-                "Direct connections are fastest but reveal your IP address to the contact. " +
-                    "Relayed connections hide it from contacts (the Aurora server still sees it); " +
-                    "calls over a relay need a TURN server.",
+                stringResource(R.string.settings_ip_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.height(8.dp))
             PeerIpExposurePolicy.entries.forEach { policy ->
                 OptionRow(
-                    label = policy.label,
+                    label = stringResource(policy.labelRes),
                     selected = ipPolicy == policy,
                     onClick = { viewModel.settings.setPeerIpExposurePolicy(policy) }
                 )
@@ -135,31 +168,31 @@ internal fun SecuritySection(
     onSetDecoy: () -> Unit
 ) {
     val duressWipe by viewModel.settings.duressWipe.collectAsState()
-    SectionTitle("Security")
+    SectionTitle(stringResource(R.string.settings_security))
     Card {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (viewModel.isRooted) {
                 Text(
-                    "⚠ This device appears to be rooted. Your keys may be extractable — use Aurora with caution.",
+                    stringResource(R.string.settings_rooted_warning),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error
                 )
             }
             Text(
-                "App lock (PIN). A separate decoy PIN opens an empty app with no contacts or messages.",
+                stringResource(R.string.settings_lock_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = onSetPin, modifier = Modifier.weight(1f)) {
-                    Text(if (viewModel.lockEnabled()) "Change PIN" else "Set PIN")
+                    Text(stringResource(if (viewModel.lockEnabled()) R.string.settings_change_pin else R.string.settings_set_pin))
                 }
                 OutlinedButton(onClick = onSetDecoy, modifier = Modifier.weight(1f)) {
-                    Text("Decoy PIN")
+                    Text(stringResource(R.string.settings_decoy_pin))
                 }
             }
             if (viewModel.lockEnabled()) {
-                TextButton(onClick = { viewModel.disableLock() }) { Text("Disable app lock") }
+                TextButton(onClick = { viewModel.disableLock() }) { Text(stringResource(R.string.settings_disable_lock)) }
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -167,15 +200,14 @@ internal fun SecuritySection(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "Decoy PIN wipes everything (duress)",
+                    stringResource(R.string.settings_duress),
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.weight(1f)
                 )
                 Switch(checked = duressWipe, onCheckedChange = viewModel::setDuressWipe)
             }
             Text(
-                "When on, entering the decoy PIN permanently erases all data instead of " +
-                    "showing an empty app. Screenshots are blocked app-wide.",
+                stringResource(R.string.settings_duress_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -186,7 +218,7 @@ internal fun SecuritySection(
 @Composable
 internal fun NetworkSection(viewModel: SettingsViewModel, onOpenShadowMesh: () -> Unit) {
     val shadowMesh by viewModel.settings.shadowMeshEnabled.collectAsState()
-    SectionTitle("Network")
+    SectionTitle(stringResource(R.string.settings_network))
     Card {
         Column(Modifier.padding(16.dp)) {
             Row(
@@ -194,11 +226,9 @@ internal fun NetworkSection(viewModel: SettingsViewModel, onOpenShadowMesh: () -
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text("ShadowMesh relay", style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(R.string.settings_shadowmesh), style = MaterialTheme.typography.titleSmall)
                     Text(
-                        "Help carry other users' encrypted, end-to-end fragments and route " +
-                            "your own through the network for extra metadata privacy. " +
-                            "Off by default — your messages work without it.",
+                        stringResource(R.string.settings_shadowmesh_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -217,22 +247,22 @@ internal fun NetworkSection(viewModel: SettingsViewModel, onOpenShadowMesh: () -
             TextButton(
                 onClick = onOpenShadowMesh,
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
-            ) { Text("Learn more about ShadowMesh") }
+            ) { Text(stringResource(R.string.settings_shadowmesh_learn)) }
         }
     }
 }
 
 @Composable
 internal fun AboutLegalSection(onOpenLegal: (String) -> Unit) {
-    SectionTitle("About & Legal")
+    SectionTitle(stringResource(R.string.settings_about_legal))
     Card {
         Column(Modifier.padding(vertical = 4.dp)) {
-            NavRow("Terms & Conditions") { onOpenLegal("terms") }
+            NavRow(stringResource(R.string.legal_terms)) { onOpenLegal("terms") }
             HorizontalDivider(Modifier.padding(horizontal = 16.dp))
-            NavRow("Privacy Policy") { onOpenLegal("privacy") }
+            NavRow(stringResource(R.string.legal_privacy)) { onOpenLegal("privacy") }
             HorizontalDivider(Modifier.padding(horizontal = 16.dp))
             Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-                Text("Contact", style = MaterialTheme.typography.bodyLarge)
+                Text(stringResource(R.string.settings_contact), style = MaterialTheme.typography.bodyLarge)
                 Text(
                     com.aura.legal.LegalDocs.CONTACT_EMAIL,
                     style = MaterialTheme.typography.bodySmall,
@@ -249,31 +279,29 @@ internal fun DataSection(
     onRestore: () -> Unit,
     onClear: () -> Unit
 ) {
-    SectionTitle("Data")
+    SectionTitle(stringResource(R.string.settings_data))
     Card {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
-                "An encrypted backup lets you restore your identity and contacts after a " +
-                    "reinstall. It's protected by a passphrase only you know — keep it safe, " +
-                    "there's no way to recover the backup without it.",
+                stringResource(R.string.settings_backup_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Button(onClick = onExport, modifier = Modifier.fillMaxWidth()) {
-                Text("Export encrypted backup")
+                Text(stringResource(R.string.settings_export_backup))
             }
             OutlinedButton(
                 onClick = onRestore,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Restore from backup")
+                Text(stringResource(R.string.settings_restore_backup))
             }
             HorizontalDivider()
             OutlinedButton(
                 onClick = onClear,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Clear all data", color = MaterialTheme.colorScheme.error)
+                Text(stringResource(R.string.settings_clear_data), color = MaterialTheme.colorScheme.error)
             }
         }
     }
@@ -411,7 +439,7 @@ internal fun PinDialog(
                 OutlinedTextField(
                     value = pin,
                     onValueChange = { pin = it.filter { c -> c.isDigit() }.take(8) },
-                    label = { Text("PIN (4–8 digits)") },
+                    label = { Text(stringResource(R.string.pin_label)) },
                     visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                         keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword
@@ -421,9 +449,9 @@ internal fun PinDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(pin) }, enabled = pin.length >= 4) { Text("Save") }
+            TextButton(onClick = { onConfirm(pin) }, enabled = pin.length >= 4) { Text(stringResource(R.string.action_save)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } }
     )
 }
 

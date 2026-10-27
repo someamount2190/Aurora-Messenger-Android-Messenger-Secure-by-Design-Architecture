@@ -25,9 +25,11 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.aura.R
 import com.aura.legal.LegalDoc
 import com.aura.legal.LegalDocs
 
@@ -41,7 +43,7 @@ fun LegalScreen(docKey: String, onBack: () -> Unit) {
                 title = { Text(doc.title) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 }
             )
@@ -69,7 +71,7 @@ fun LegalScreen(docKey: String, onBack: () -> Unit) {
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                "Effective ${doc.effectiveDate} · Developed by ${LegalDocs.DEVELOPER}",
+                stringResource(R.string.legal_effective, doc.effectiveDate, LegalDocs.DEVELOPER),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -144,7 +146,7 @@ fun LegalScreen(docKey: String, onBack: () -> Unit) {
 
             Spacer(Modifier.height(28.dp))
             Text(
-                "Aurora. Protecting your loved ones.",
+                stringResource(R.string.onboarding_closing),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,

@@ -31,11 +31,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.aura.R
 import com.aura.db.ContactDao
 import com.aura.db.ContactEntity
 import com.aura.db.MessageDao
@@ -45,13 +48,13 @@ import com.aura.security.AppLock
 import com.aura.share.ShareIntentBus
 import com.aura.transport.MessageSender
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.util.UUID
+import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.util.UUID
-import javax.inject.Inject
 
 @HiltViewModel
 class ShareViewModel @Inject constructor(
@@ -109,16 +112,19 @@ fun ShareScreen(
 
     val summary = when (val p = pending) {
         null            -> ""
-        else            -> if (p.isMedia) "${p.uris.size} ${p.mediaType}(s)" else "\"${p.text?.take(60) ?: ""}\""
+        else            -> if (p.isMedia) pluralStringResource(
+            if (p.mediaType == "video") R.plurals.share_videos else R.plurals.share_images,
+            p.uris.size, p.uris.size
+        ) else "\"${p.text?.take(60) ?: ""}\""
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Share with…") },
+                title = { Text(stringResource(R.string.share_title)) },
                 navigationIcon = {
                     IconButton(onClick = { viewModel.cancel(); onCancel() }) {
-                        Icon(Icons.Default.Close, contentDescription = "Cancel")
+                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.action_cancel))
                     }
                 }
             )
@@ -131,7 +137,7 @@ fun ShareScreen(
         ) {
             if (summary.isNotEmpty()) {
                 Text(
-                    "Sharing $summary",
+                    stringResource(R.string.share_sharing, summary),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(16.dp)
@@ -143,10 +149,10 @@ fun ShareScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    Text("No contacts yet", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.share_no_contacts), style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "Pair with someone first, then you can share to them.",
+                        stringResource(R.string.share_pair_first),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center

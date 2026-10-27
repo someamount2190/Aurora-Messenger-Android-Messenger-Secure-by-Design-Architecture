@@ -1,10 +1,13 @@
 package com.aura.ui.onboarding
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -41,10 +45,10 @@ import androidx.lifecycle.viewModelScope
 import com.aura.R
 import com.aura.identity.IdentityStore
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 @HiltViewModel
 class OnboardingViewModel @Inject constructor(
@@ -64,40 +68,30 @@ class OnboardingViewModel @Inject constructor(
 }
 
 private data class OnboardingPage(
-    val title: String?,
-    val body: String,
-    val closing: String? = null,
+    @StringRes val title: Int?,
+    @StringRes val body: Int,
+    @StringRes val closing: Int? = null,
     val isWelcome: Boolean = false
 )
 
 private val onboardingPages = listOf(
     OnboardingPage(
         title = null,
-        body = "Private messaging without compromise.",
+        body = R.string.onboarding_welcome,
         isWelcome = true
     ),
     OnboardingPage(
-        title = "What is Aurora?",
-        body = "Aurora is a private messenger built on one simple belief — some conversations belong only to the people having them.\n\n" +
-            "In a world where every message you send passes through a corporation's servers, gets stored in a database, and becomes data to be analyzed, sold, or subpoenaed — Aurora is different.\n\n" +
-            "Your messages travel directly from your phone to theirs. No company reads them. No server stores them. No one is listening."
+        title = R.string.onboarding_what_title,
+        body = R.string.onboarding_what_body
     ),
     OnboardingPage(
-        title = "What We Cannot See",
-        body = "We want to be precise about this because most apps are not.\n\n" +
-            "We cannot read your messages.\n" +
-            "We cannot see who you are talking to.\n" +
-            "We cannot see what media you share.\n" +
-            "We keep no logs of your activity or presence.\n" +
-            "We do not know your name, your number, or your face.\n\n" +
-            "To deliver messages and calls even when the app is closed, your phone holds a lightweight connection to a relay whose only job is to wake the other person's device. The relay can tell that a device is reachable, but it never sees your messages, your media, or your identity, and it keeps no record of any of it. The conversation itself always travels directly between phones.\n\n" +
-            "If someone came to us with a court order demanding your conversations — we could not hand them over. Not because we would refuse. Because they do not exist anywhere but on your phone."
+        title = R.string.onboarding_cannot_title,
+        body = R.string.onboarding_cannot_body
     ),
     OnboardingPage(
-        title = "Who Aurora Is For",
-        body = "Aurora is for the couple who wants their intimate conversations to stay intimate. The family that wants to share without a corporation watching. The friends who want to talk freely. The person who simply believes that a private conversation should be private.\n\n" +
-            "You don't need to be afraid of anything to want privacy. Privacy is not the opposite of having nothing to hide. Privacy is the foundation of every meaningful human relationship.",
-        closing = "Aurora. Protecting your loved ones."
+        title = R.string.onboarding_for_title,
+        body = R.string.onboarding_for_body,
+        closing = R.string.onboarding_closing
     )
 )
 
@@ -123,7 +117,7 @@ fun OnboardingScreen(
             Spacer(Modifier.weight(1f))
             if (pagerState.currentPage < lastIndex) {
                 TextButton(onClick = { scope.launch { pagerState.scrollToPage(lastIndex) } }) {
-                    Text("Skip")
+                    Text(stringResource(R.string.action_skip))
                 }
             }
         }
@@ -160,14 +154,14 @@ fun OnboardingScreen(
                 Button(
                     onClick = { scope.launch { pagerState.scrollToPage(pagerState.currentPage + 1) } },
                     modifier = Modifier.fillMaxWidth()
-                ) { Text("Continue") }
+                ) { Text(stringResource(R.string.action_continue)) }
             } else {
                 if (!ready) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                         CircularProgressIndicator()
                         Spacer(Modifier.height(12.dp))
                         Text(
-                            "Generating your secure identity…",
+                            stringResource(R.string.onboarding_generating),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -177,26 +171,28 @@ fun OnboardingScreen(
                         Button(
                             onClick = { onDone() },
                             modifier = Modifier.fillMaxWidth()
-                        ) { Text("Get started") }
+                        ) { Text(stringResource(R.string.onboarding_get_started)) }
                         Spacer(Modifier.height(10.dp))
                         Text(
-                            "By tapping Get started, you agree to our",
+                            stringResource(R.string.onboarding_agree),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center
                         )
-                        Row(
+                        // FlowRow: longer translations wrap whole links instead of mid-word.
+                        @OptIn(ExperimentalLayoutApi::class)
+                        FlowRow(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
+                            horizontalArrangement = Arrangement.Center
                         ) {
-                            TextButton(onClick = { onOpenLegal("terms") }) { Text("Terms & Conditions") }
+                            TextButton(onClick = { onOpenLegal("terms") }) { Text(stringResource(R.string.legal_terms)) }
                             Text(
-                                "and",
+                                stringResource(R.string.onboarding_and),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.align(Alignment.CenterVertically)
                             )
-                            TextButton(onClick = { onOpenLegal("privacy") }) { Text("Privacy Policy") }
+                            TextButton(onClick = { onOpenLegal("privacy") }) { Text(stringResource(R.string.legal_privacy)) }
                         }
                     }
                 }
@@ -231,7 +227,7 @@ private fun PageContent(page: OnboardingPage) {
             )
             Spacer(Modifier.height(12.dp))
             Text(
-                page.body,
+                stringResource(page.body),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
@@ -239,7 +235,7 @@ private fun PageContent(page: OnboardingPage) {
         } else {
             page.title?.let {
                 Text(
-                    it,
+                    stringResource(it),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -247,14 +243,14 @@ private fun PageContent(page: OnboardingPage) {
                 Spacer(Modifier.height(20.dp))
             }
             Text(
-                page.body,
+                stringResource(page.body),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onBackground
             )
             page.closing?.let {
                 Spacer(Modifier.height(28.dp))
                 Text(
-                    it,
+                    stringResource(it),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,

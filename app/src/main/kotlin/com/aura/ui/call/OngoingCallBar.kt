@@ -30,8 +30,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.aura.R
 import com.aura.call.CallController
 import com.aura.call.CallState
 import kotlinx.coroutines.delay
@@ -52,10 +54,10 @@ fun OngoingCallBar(callManager: CallController, onExpand: () -> Unit) {
 
     val label = when {
         call.connectedAtMs > 0L -> formatDuration(nowMs - call.connectedAtMs)
-        call.state == CallState.OUTGOING   -> "Calling…"
-        call.state == CallState.CONNECTING -> "Connecting…"
-        call.state == CallState.INCOMING   -> "Incoming call"
-        else -> "On call"
+        call.state == CallState.OUTGOING   -> stringResource(R.string.call_calling)
+        call.state == CallState.CONNECTING -> stringResource(R.string.call_connecting)
+        call.state == CallState.INCOMING   -> stringResource(R.string.call_incoming)
+        else -> stringResource(R.string.call_on_call)
     }
 
     Box(
@@ -80,14 +82,14 @@ fun OngoingCallBar(callManager: CallController, onExpand: () -> Unit) {
             )
             Spacer(Modifier.width(10.dp))
             Text(
-                (call.peerName ?: "Call") + "  ·  " + label,
+                (call.peerName ?: stringResource(R.string.call_generic)) + "  ·  " + label,
                 color = Color.White,
                 fontWeight = FontWeight.SemiBold,
                 style = MaterialTheme.typography.bodyMedium
             )
             Spacer(Modifier.weight(1f))
             Text(
-                "Tap to return",
+                stringResource(R.string.call_tap_return),
                 color = Color.White.copy(alpha = 0.85f),
                 style = MaterialTheme.typography.labelSmall
             )
@@ -100,7 +102,7 @@ fun OngoingCallBar(callManager: CallController, onExpand: () -> Unit) {
                 contentAlignment = Alignment.Center
             ) {
                 IconButton(onClick = { callManager.endCall() }) {
-                    Icon(Icons.Default.CallEnd, contentDescription = "End call", tint = Color.White, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.CallEnd, contentDescription = stringResource(R.string.call_end), tint = Color.White, modifier = Modifier.size(16.dp))
                 }
             }
         }

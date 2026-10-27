@@ -1,5 +1,7 @@
 package com.aura.ui
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,27 +16,25 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.collectAsState
-import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import kotlinx.coroutines.launch
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import androidx.lifecycle.viewModelScope
+import com.aura.R
 import com.aura.call.CallController
 import com.aura.call.CallState
 import com.aura.disappearing.DisappearingMessages
@@ -48,25 +48,26 @@ import com.aura.server.RendezvousServerController
 import com.aura.settings.AuroraSettings
 import com.aura.share.ShareIntentBus
 import com.aura.share.ShareShortcuts
-import com.aura.ui.share.ShareScreen
 import com.aura.ui.call.CallBubble
 import com.aura.ui.call.CallScreen
 import com.aura.ui.call.OngoingCallBar
-import com.aura.ui.lock.LockScreen
 import com.aura.ui.conversation.ConversationScreen
 import com.aura.ui.home.HomeScreen
 import com.aura.ui.legal.LegalScreen
+import com.aura.ui.lock.LockScreen
 import com.aura.ui.onboarding.OnboardingScreen
 import com.aura.ui.onboarding.PermissionsScreen
 import com.aura.ui.qr.MyCodeScreen
 import com.aura.ui.qr.ScanScreen
 import com.aura.ui.settings.SettingsScreen
 import com.aura.ui.shadowmesh.ShadowMeshScreen
+import com.aura.ui.share.ShareScreen
 import com.aura.ui.splash.SplashScreen
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import javax.inject.Inject
+import kotlinx.coroutines.launch
 
 object Routes {
     const val SPLASH       = "splash"
@@ -151,12 +152,12 @@ private fun AuroraAppContent(viewModel: AuroraAppViewModel) {
     LaunchedEffect(Unit) {
         viewModel.pairingManager.events.collect { ev ->
             val msg = when (ev) {
-                is com.aura.pairing.PairEvent.Success  -> "Contact added"
-                is com.aura.pairing.PairEvent.Accepted -> "Accepted — verify the codes to start chatting"
-                is com.aura.pairing.PairEvent.Declined -> "Your request was declined"
-                is com.aura.pairing.PairEvent.Failed   -> "Verification failed — contact removed"
-                is com.aura.pairing.PairEvent.ContactRemoved -> "${ev.name} removed you as a contact"
-                is com.aura.pairing.PairEvent.IncomingRequest -> "Someone wants to connect"
+                is com.aura.pairing.PairEvent.Success  -> appContext.getString(R.string.pair_toast_added)
+                is com.aura.pairing.PairEvent.Accepted -> appContext.getString(R.string.pair_toast_accepted)
+                is com.aura.pairing.PairEvent.Declined -> appContext.getString(R.string.pair_toast_declined)
+                is com.aura.pairing.PairEvent.Failed   -> appContext.getString(R.string.pair_toast_failed)
+                is com.aura.pairing.PairEvent.ContactRemoved -> appContext.getString(R.string.pair_toast_removed, ev.name)
+                is com.aura.pairing.PairEvent.IncomingRequest -> appContext.getString(R.string.pair_toast_incoming)
             }
             android.widget.Toast.makeText(appContext, msg, android.widget.Toast.LENGTH_SHORT).show()
             // A request arrived while the host may be sitting on the "Show my code" /

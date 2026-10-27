@@ -1,9 +1,9 @@
 package com.aura.ui.conversation
 
 import android.graphics.BitmapFactory
+import android.graphics.SurfaceTexture
 import android.media.MediaPlayer
 import android.view.Surface
-import android.graphics.SurfaceTexture
 import android.view.TextureView
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -40,8 +40,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.aura.R
 import com.aura.db.MessageEntity
 import com.aura.media.ByteArrayMediaDataSource
 import kotlinx.coroutines.delay
@@ -103,16 +105,16 @@ internal fun FullscreenImageViewer(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onClose) {
-                Icon(Icons.Default.Close, contentDescription = "Close",
+                Icon(Icons.Default.Close, contentDescription = stringResource(R.string.action_close),
                     tint = androidx.compose.ui.graphics.Color.White)
             }
             androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
             IconButton(onClick = onShare) {
-                Icon(Icons.Default.Share, contentDescription = "Share",
+                Icon(Icons.Default.Share, contentDescription = stringResource(R.string.action_share),
                     tint = androidx.compose.ui.graphics.Color.White)
             }
             IconButton(onClick = onSave) {
-                Icon(Icons.Default.Save, contentDescription = "Save to gallery",
+                Icon(Icons.Default.Save, contentDescription = stringResource(R.string.media_save_gallery),
                     tint = androidx.compose.ui.graphics.Color.White)
             }
         }
@@ -221,7 +223,7 @@ private fun VideoPlayer(bytes: ByteArray, modifier: Modifier = Modifier) {
         if (!playing) {
             Icon(
                 Icons.Default.PlayCircle,
-                contentDescription = "Play",
+                contentDescription = stringResource(R.string.media_play),
                 tint = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.9f),
                 modifier = Modifier.size(72.dp)
             )
@@ -239,7 +241,7 @@ private fun VideoPlayer(bytes: ByteArray, modifier: Modifier = Modifier) {
             IconButton(onClick = { togglePlay() }) {
                 Icon(
                     if (playing) Icons.Default.Pause else Icons.Default.PlayArrow,
-                    contentDescription = if (playing) "Pause" else "Play",
+                    contentDescription = stringResource(if (playing) R.string.media_pause else R.string.media_play),
                     tint = androidx.compose.ui.graphics.Color.White
                 )
             }

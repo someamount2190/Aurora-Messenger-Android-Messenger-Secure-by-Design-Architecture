@@ -2,7 +2,6 @@ package com.aura.ui.home
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -26,8 +26,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.aura.R
 
 @Composable
 internal fun SearchField(query: String, onChange: (String) -> Unit) {
@@ -35,12 +37,12 @@ internal fun SearchField(query: String, onChange: (String) -> Unit) {
         value = query,
         onValueChange = onChange,
         modifier = Modifier.fillMaxWidth(),
-        placeholder = { Text("Search contacts and messages") },
+        placeholder = { Text(stringResource(R.string.home_search_hint)) },
         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
         trailingIcon = {
             if (query.isNotEmpty()) {
                 IconButton(onClick = { onChange("") }) {
-                    Icon(Icons.Default.Close, contentDescription = "Clear search")
+                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.home_clear_search))
                 }
             }
         },
@@ -59,7 +61,7 @@ internal fun SearchResults(
     if (contacts.isEmpty() && messages.isEmpty()) {
         Box(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             Text(
-                "No matches",
+                stringResource(R.string.home_no_matches),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -68,19 +70,19 @@ internal fun SearchResults(
     }
     LazyColumn(modifier = modifier.fillMaxWidth()) {
         if (contacts.isNotEmpty()) {
-            item { SectionHeader("Contacts") }
+            item { SectionHeader(stringResource(R.string.home_section_contacts)) }
             items(contacts.size, key = { "c" + contacts[it].contact.nodeIdHex }) { i ->
                 val c = contacts[i].contact
                 SearchRow(
                     initial = c.displayName.take(1).uppercase(),
                     title = c.displayName,
-                    subtitle = "Contact",
+                    subtitle = stringResource(R.string.home_contact),
                     onClick = { onOpen(c.nodeIdHex) }
                 )
             }
         }
         if (messages.isNotEmpty()) {
-            item { SectionHeader("Messages") }
+            item { SectionHeader(stringResource(R.string.home_section_messages)) }
             items(messages.size, key = { "m" + messages[it].message.id }) { i ->
                 val mm = messages[i]
                 SearchRow(

@@ -23,9 +23,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.aura.R
 import com.aura.server.RendezvousServerController
 import kotlinx.coroutines.delay
 
@@ -63,7 +65,7 @@ fun HomeScreen(
                 ),
                 actions = {
                     IconButton(onClick = onOpenSettings) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                        Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.settings_title))
                     }
                 }
             )
@@ -75,11 +77,11 @@ fun HomeScreen(
                 ExtendedFloatingActionButton(
                     onClick = onAddContact,
                     icon = { Icon(Icons.Default.QrCodeScanner, contentDescription = null) },
-                    text = { Text("Add a contact") }
+                    text = { Text(stringResource(R.string.home_add_contact_fab)) }
                 )
             } else {
                 FloatingActionButton(onClick = onAddContact) {
-                    Icon(Icons.Default.QrCodeScanner, contentDescription = "Add contact")
+                    Icon(Icons.Default.QrCodeScanner, contentDescription = stringResource(R.string.home_add_contact))
                 }
             }
         }

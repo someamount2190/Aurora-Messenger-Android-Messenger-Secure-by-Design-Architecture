@@ -10,6 +10,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -49,6 +50,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -57,6 +59,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ViewModel
+import com.aura.R
 import com.aura.settings.AuroraSettings
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -78,8 +81,8 @@ private enum class PermKind {
 private data class PermSpec(
     val id: String,
     val icon: ImageVector,
-    val title: String,
-    val why: String,
+    @StringRes val title: Int,
+    @StringRes val why: Int,
     val kind: PermKind,
     /** Required entries gate entry into the app; optional ones can be enabled later. */
     val required: Boolean = true,
@@ -93,10 +96,8 @@ private val PERMISSION_SPECS: List<PermSpec> = listOf(
     PermSpec(
         id = "notifications",
         icon = Icons.Filled.Notifications,
-        title = "Notifications",
-        why = "So you actually find out when something happens — a new message, an incoming " +
-            "call, or someone asking to connect. Without this, requests and messages arrive " +
-            "silently and you can miss them entirely (including a contact's pairing request).",
+        title = R.string.perm_notifications_title,
+        why = R.string.perm_notifications_why,
         kind = PermKind.RUNTIME,
         permission = Manifest.permission.POST_NOTIFICATIONS,
         minSdk = Build.VERSION_CODES.TIRAMISU
@@ -104,20 +105,15 @@ private val PERMISSION_SPECS: List<PermSpec> = listOf(
     PermSpec(
         id = "battery",
         icon = Icons.Filled.BatteryChargingFull,
-        title = "Run in the background",
-        why = "So messages and calls reach you even when Aurora is closed or your screen is off. " +
-            "Aurora holds one lightweight connection that lets the other person's device wake " +
-            "yours. If the system is allowed to sleep it, you simply won't receive anything " +
-            "until you reopen the app.",
+        title = R.string.perm_battery_title,
+        why = R.string.perm_battery_why,
         kind = PermKind.BATTERY
     ),
     PermSpec(
         id = "microphone",
         icon = Icons.Filled.Mic,
-        title = "Microphone",
-        why = "For voice messages and for voice and video calls. Audio is captured only while " +
-            "you're recording or on a call, and it's end-to-end encrypted — it never touches a server. " +
-            "You can skip this now; Aurora will ask the first time you record or call.",
+        title = R.string.perm_microphone_title,
+        why = R.string.perm_microphone_why,
         kind = PermKind.RUNTIME,
         required = false,
         permission = Manifest.permission.RECORD_AUDIO
@@ -125,10 +121,8 @@ private val PERMISSION_SPECS: List<PermSpec> = listOf(
     PermSpec(
         id = "camera",
         icon = Icons.Filled.PhotoCamera,
-        title = "Camera",
-        why = "To add a contact by scanning their QR code, and for video calls. The camera is " +
-            "used only while scanning or during a video call. You can skip this now; Aurora will " +
-            "ask the first time you scan a code or start a video call.",
+        title = R.string.perm_camera_title,
+        why = R.string.perm_camera_why,
         kind = PermKind.RUNTIME,
         required = false,
         permission = Manifest.permission.CAMERA
@@ -136,10 +130,8 @@ private val PERMISSION_SPECS: List<PermSpec> = listOf(
     PermSpec(
         id = "gallery",
         icon = Icons.Filled.PhotoLibrary,
-        title = "Photos & videos",
-        why = "Sharing a photo or video opens Android's built-in picker, where you choose exactly " +
-            "what to send. Aurora never asks for access to your whole gallery, so there's nothing " +
-            "to grant here.",
+        title = R.string.perm_gallery_title,
+        why = R.string.perm_gallery_why,
         kind = PermKind.INFO,
         required = false
     )
@@ -242,17 +234,14 @@ fun PermissionsScreen(
     ) {
         Spacer(Modifier.height(8.dp))
         Text(
-            "Before you start",
+            stringResource(R.string.perm_header),
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary
         )
         Spacer(Modifier.height(10.dp))
         Text(
-            "Aurora needs two permissions to deliver your messages and calls reliably. " +
-                "None of them change what Aurora can see — your conversations stay end-to-end " +
-                "encrypted and never pass through a server. These only let the app reach you. " +
-                "The rest are optional and you can enable them anytime.",
+            stringResource(R.string.perm_intro),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -265,14 +254,14 @@ fun PermissionsScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            SectionLabel("Required")
+            SectionLabel(stringResource(R.string.perm_required))
             requiredSpecs.forEach { spec ->
                 val granted = remember(refreshKey, spec.id) { isGranted(context, spec) }
                 PermissionCard(spec = spec, granted = granted, onAllow = { handleAllow(spec) })
             }
             if (optionalSpecs.isNotEmpty()) {
                 Spacer(Modifier.height(4.dp))
-                SectionLabel("Optional · enable now or anytime later")
+                SectionLabel(stringResource(R.string.perm_optional))
                 optionalSpecs.forEach { spec ->
                     val granted = remember(refreshKey, spec.id) { isGranted(context, spec) }
                     PermissionCard(spec = spec, granted = granted, onAllow = { handleAllow(spec) })
@@ -283,7 +272,7 @@ fun PermissionsScreen(
         Spacer(Modifier.height(12.dp))
         if (!allRequiredGranted) {
             Text(
-                "Enable the required permissions above to continue.",
+                stringResource(R.string.perm_enable_required),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -296,7 +285,7 @@ fun PermissionsScreen(
             enabled = allRequiredGranted,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text(if (allRequiredGranted) "Enter Aurora" else "Grant required permissions")
+            Text(stringResource(if (allRequiredGranted) R.string.perm_enter else R.string.perm_grant_required))
         }
         Spacer(Modifier.height(8.dp))
     }
@@ -337,14 +326,14 @@ private fun PermissionCard(
             Spacer(Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    spec.title,
+                    stringResource(spec.title),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    spec.why,
+                    stringResource(spec.why),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -353,18 +342,18 @@ private fun PermissionCard(
             when {
                 // Informational rows (e.g. the media picker) need nothing granted.
                 spec.kind == PermKind.INFO -> Text(
-                    "No setup\nneeded",
+                    stringResource(R.string.perm_no_setup),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.End
                 )
                 granted -> Icon(
                     Icons.Filled.CheckCircle,
-                    contentDescription = "Granted",
+                    contentDescription = stringResource(R.string.perm_granted),
                     tint = Color(0xFF4CD97B),
                     modifier = Modifier.size(26.dp)
                 )
-                else -> OutlinedButton(onClick = onAllow) { Text("Allow") }
+                else -> OutlinedButton(onClick = onAllow) { Text(stringResource(R.string.perm_allow)) }
             }
         }
     }

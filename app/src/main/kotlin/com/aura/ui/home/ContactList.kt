@@ -2,7 +2,6 @@ package com.aura.ui.home
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -25,11 +25,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.aura.R
 import com.aura.db.MessageEntity
 import com.aura.db.PairState
 import com.aura.streak.Streaks
+import com.aura.ui.conversation.callLogLabel
 import com.aura.ui.theme.auroraGlass
 import com.aura.ui.theme.glassEdgeLight
 import kotlinx.coroutines.flow.SharedFlow
@@ -105,9 +108,9 @@ internal fun ContactList(
                         }
                     }
                     val subtitle = when (contact.pairState) {
-                        PairState.REQUESTED -> "Awaiting handshake…"
-                        PairState.INCOMING  -> "Wants to connect"
-                        PairState.VERIFY    -> "Tap to verify codes"
+                        PairState.REQUESTED -> stringResource(R.string.home_awaiting)
+                        PairState.INCOMING  -> stringResource(R.string.home_wants_connect)
+                        PairState.VERIFY    -> stringResource(R.string.home_tap_verify)
                         else                -> previewOf(row.lastMessage, contact.nodeIdHex)
                     }
                     Text(
@@ -129,11 +132,11 @@ internal fun ContactList(
                 // Trailing area depends on the pairing state.
                 when (contact.pairState) {
                     PairState.INCOMING -> {
-                        TextButton(onClick = { onReject(contact.nodeIdHex) }) { Text("Reject") }
-                        Button(onClick = { onAccept(contact.nodeIdHex) }) { Text("Accept") }
+                        TextButton(onClick = { onReject(contact.nodeIdHex) }) { Text(stringResource(R.string.action_reject)) }
+                        Button(onClick = { onAccept(contact.nodeIdHex) }) { Text(stringResource(R.string.action_accept)) }
                     }
                     PairState.REQUESTED -> {
-                        TextButton(onClick = { onCancel(contact.nodeIdHex) }) { Text("Cancel") }
+                        TextButton(onClick = { onCancel(contact.nodeIdHex) }) { Text(stringResource(R.string.action_cancel)) }
                     }
                     else -> if (hasUnread) {
                         Spacer(Modifier.width(8.dp))
@@ -146,16 +149,17 @@ internal fun ContactList(
 }
 
 /** Preview text for the home conversation row from the last message. */
+@Composable
 private fun previewOf(m: MessageEntity?, nodeIdHex: String): String {
-    if (m == null) return "Tap to start chatting"
-    val mine = if (m.fromMe) "You: " else ""
-    return when (m.type) {
-        "call"  -> m.body                       // "Missed call", "Incoming call · 2:34", …
-        "image" -> "$mine📷 Photo"
-        "video" -> "$mine📹 Video"
-        "audio" -> "$mine🎤 Voice message"
-        else    -> "$mine${m.body}"
+    if (m == null) return stringResource(R.string.home_tap_to_start)
+    if (m.type == "call") return callLogLabel(m)   // "Missed call", "Incoming call · 2:34", …
+    val text = when (m.type) {
+        "image" -> stringResource(R.string.preview_photo)
+        "video" -> stringResource(R.string.preview_video)
+        "audio" -> stringResource(R.string.preview_voice)
+        else    -> m.body
     }
+    return if (m.fromMe) stringResource(R.string.home_you_prefix, text) else text
 }
 
 @Composable

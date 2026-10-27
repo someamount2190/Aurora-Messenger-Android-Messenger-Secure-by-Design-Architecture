@@ -5,9 +5,6 @@ import kotlinx.coroutines.flow.SharedFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Default display name for a freshly paired contact, until the user renames it. */
-internal const val DEFAULT_NAME = "New contact"
-
 /**
  * Shared pairing event bus. Owns the one-shot [events] (toast outcomes) and
  * [incomingPaired] (navigate-to-contact) streams, so the role collaborators

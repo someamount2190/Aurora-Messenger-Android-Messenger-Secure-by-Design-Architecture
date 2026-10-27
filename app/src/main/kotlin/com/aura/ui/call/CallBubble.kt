@@ -29,14 +29,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.aura.R
 import com.aura.call.CallController
+import kotlin.math.roundToInt
 import org.webrtc.RendererCommon
 import org.webrtc.SurfaceViewRenderer
 import org.webrtc.VideoTrack
-import kotlin.math.roundToInt
 
 /**
  * A small floating window shown over the app while a call runs minimized (the user
@@ -74,12 +76,12 @@ fun CallBubble(callManager: CallController, onExpand: () -> Unit) {
                 ) {
                     Icon(Icons.Default.Call, contentDescription = null, tint = Color(0xFF4CD97B))
                     Text(
-                        call.peerName ?: "Call",
+                        call.peerName ?: stringResource(R.string.call_generic),
                         color = Color.White,
                         style = MaterialTheme.typography.labelMedium
                     )
                     Text(
-                        "Tap to return",
+                        stringResource(R.string.call_tap_return),
                         color = Color.White.copy(alpha = 0.7f),
                         style = MaterialTheme.typography.labelSmall
                     )

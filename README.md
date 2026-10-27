@@ -1,3 +1,9 @@
+<picture>
+  <source srcset="docs/branding/aurora-hero-1760x990.webp" type="image/webp">
+  <img src="docs/branding/aurora-hero-1760x990.png"
+       alt="Aurora Messenger — only two phones can read this. A post-quantum, end-to-end encrypted messenger for Android.">
+</picture>
+
 # Aurora Messenger
 
 **A post-quantum, end-to-end encrypted messenger for Android.** No phone number, no account,

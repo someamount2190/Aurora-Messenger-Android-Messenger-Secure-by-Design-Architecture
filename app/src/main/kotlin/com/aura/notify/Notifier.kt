@@ -40,8 +40,8 @@ class Notifier @Inject constructor(
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val mgr = context.getSystemService(NotificationManager::class.java) ?: return
         mgr.createNotificationChannel(
-            NotificationChannel(CH_MESSAGES, "Messages", NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "Alerts when a new message arrives"
+            NotificationChannel(CH_MESSAGES, context.getString(R.string.notif_ch_messages), NotificationManager.IMPORTANCE_HIGH).apply {
+                description = context.getString(R.string.notif_ch_messages_desc)
             }
         )
         // Calls channel: high importance for the full-screen ring, but silent + no
@@ -49,8 +49,8 @@ class Notifier @Inject constructor(
         // so the channel must not double them up. A fresh id ("calls_v2") because an
         // already-created channel's sound/vibration can't be changed afterwards.
         mgr.createNotificationChannel(
-            NotificationChannel(CH_CALLS, "Calls", NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "Alerts for incoming calls"
+            NotificationChannel(CH_CALLS, context.getString(R.string.notif_ch_calls), NotificationManager.IMPORTANCE_HIGH).apply {
+                description = context.getString(R.string.notif_ch_calls_desc)
                 setSound(null, null)
                 enableVibration(false)
             }
@@ -81,7 +81,7 @@ class Notifier @Inject constructor(
         val n = NotificationCompat.Builder(context, CH_MESSAGES)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("Aurora")
-            .setContentText("New message received")
+            .setContentText(context.getString(R.string.notif_new_message))
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
@@ -111,14 +111,14 @@ class Notifier @Inject constructor(
             .setFullScreenIntent(answer, true)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             // CallStyle renders the native Answer/Decline call UI (lock screen included).
-            val caller = androidx.core.app.Person.Builder().setName("Aurora call").build()
+            val caller = androidx.core.app.Person.Builder().setName(context.getString(R.string.notif_call_person)).build()
             builder.setStyle(NotificationCompat.CallStyle.forIncomingCall(caller, decline, answer))
         } else {
-            builder.setContentTitle("Incoming Aurora call")
-                .setContentText("Tap to answer")
+            builder.setContentTitle(context.getString(R.string.notif_incoming_call))
+                .setContentText(context.getString(R.string.notif_tap_answer))
                 .setContentIntent(answer)
-                .addAction(R.drawable.ic_notification, "Decline", decline)
-                .addAction(R.drawable.ic_notification, "Answer", answer)
+                .addAction(R.drawable.ic_notification, context.getString(R.string.notif_decline), decline)
+                .addAction(R.drawable.ic_notification, context.getString(R.string.notif_answer), answer)
         }
         safeNotify(ID_CALL, builder.build())
     }
@@ -183,9 +183,9 @@ class Notifier @Inject constructor(
             .setOngoing(true)
             .setAutoCancel(false)
             .setContentIntent(openCallIntent())
-            .setContentTitle("Aurora call in progress")
-            .setContentText("Tap to return to the call")
-            .addAction(R.drawable.ic_notification, "End", end)
+            .setContentTitle(context.getString(R.string.notif_call_progress))
+            .setContentText(context.getString(R.string.notif_tap_return_call))
+            .addAction(R.drawable.ic_notification, context.getString(R.string.notif_end), end)
         safeNotify(ID_CALL, builder.build())
     }
 
@@ -231,7 +231,7 @@ class Notifier @Inject constructor(
         val n = NotificationCompat.Builder(context, CH_MESSAGES)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("Aurora")
-            .setContentText("New contact request")
+            .setContentText(context.getString(R.string.notif_contact_request))
             .setCategory(NotificationCompat.CATEGORY_SOCIAL)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
@@ -255,7 +255,7 @@ class Notifier @Inject constructor(
         val n = NotificationCompat.Builder(context, CH_MESSAGES)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("Aurora")
-            .setContentText("A contact removed you")
+            .setContentText(context.getString(R.string.notif_contact_removed))
             .setCategory(NotificationCompat.CATEGORY_SOCIAL)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)

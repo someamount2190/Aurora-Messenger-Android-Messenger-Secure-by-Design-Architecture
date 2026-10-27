@@ -1,6 +1,7 @@
 package com.aura
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -20,6 +21,7 @@ import com.aura.call.CallState
 import com.aura.call.CallOverlay
 import com.aura.notify.Notifier
 import com.aura.security.AppLock
+import com.aura.settings.AppLocale
 import com.aura.settings.AuroraSettings
 import com.aura.settings.ThemeMode
 import com.aura.share.PendingShare
@@ -43,6 +45,10 @@ class MainActivity : ComponentActivity() {
 
     private val requestNotificationPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* best-effort */ }
+
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLocale.wrap(newBase))
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

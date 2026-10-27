@@ -1,9 +1,13 @@
 package com.aura.ui.conversation
 
+import android.content.ContentValues
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.SurfaceTexture
 import android.media.MediaMetadataRetriever
+import android.media.MediaPlayer
+import android.net.Uri
 import android.view.Surface
 import android.view.TextureView
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -12,16 +16,15 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -30,7 +33,9 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
@@ -49,14 +54,8 @@ import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.AlertDialog
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.sp
-import com.aura.db.PairState
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -76,7 +75,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import com.aura.transport.rtc.RtcState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -88,22 +86,25 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.aura.media.ByteArrayMediaDataSource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import android.content.ContentValues
-import android.content.Context
-import android.net.Uri
+import com.aura.R
 import com.aura.db.ContactDao
 import com.aura.db.ContactEntity
 import com.aura.db.MessageDao
 import com.aura.db.MessageEntity
-import android.media.MediaPlayer
+import com.aura.db.PairState
 import com.aura.disappearing.DisappearingMessages
+import com.aura.media.ByteArrayMediaDataSource
 import com.aura.media.MediaTransfer
 import com.aura.media.VoiceRecorder
 import com.aura.pairing.PairingCoordinator
@@ -111,8 +112,12 @@ import com.aura.reaction.Reactions
 import com.aura.settings.DisappearingTimer
 import com.aura.streak.Streaks
 import com.aura.transport.MessageSender
+import com.aura.transport.rtc.RtcState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.io.File
+import java.util.UUID
+import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -122,9 +127,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
-import java.util.UUID
-import javax.inject.Inject
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -248,7 +250,7 @@ fun ConversationScreen(
                         // lives in a banner above the messages, not here.
                         if (currentTimer != DisappearingTimer.OFF) {
                             Text(
-                                "⏱ Disappearing: ${currentTimer.label}",
+                                stringResource(R.string.conv_disappearing, stringResource(currentTimer.labelRes)),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.primary,
                                 maxLines = 1,
@@ -256,10 +258,10 @@ fun ConversationScreen(
                             )
                         }
                         val connText = when (connection) {
-                            RtcState.CONNECTED -> "🔒 Connected"
-                            RtcState.SIGNALING, RtcState.GATHERING, RtcState.CHECKING -> "Connecting…"
-                            RtcState.UNREACHABLE -> "Not connected directly"
-                            RtcState.FAILED -> "Offline"
+                            RtcState.CONNECTED -> stringResource(R.string.conv_connected)
+                            RtcState.SIGNALING, RtcState.GATHERING, RtcState.CHECKING -> stringResource(R.string.conv_connecting)
+                            RtcState.UNREACHABLE -> stringResource(R.string.conv_not_direct)
+                            RtcState.FAILED -> stringResource(R.string.conv_offline)
                             RtcState.IDLE -> null
                         }
                         if (connText != null) {
@@ -279,37 +281,40 @@ fun ConversationScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 },
                 actions = {
                     IconButton(onClick = { launchCall(false) }, enabled = !callActive) {
-                        Icon(Icons.Default.Call, contentDescription = "Voice call")
+                        Icon(Icons.Default.Call, contentDescription = stringResource(R.string.conv_voice_call))
                     }
                     IconButton(onClick = { launchCall(true) }, enabled = !callActive) {
-                        Icon(Icons.Default.Videocam, contentDescription = "Video call")
+                        Icon(Icons.Default.Videocam, contentDescription = stringResource(R.string.conv_video_call))
                     }
                     IconButton(onClick = { timerMenuOpen = true }) {
-                        Icon(Icons.Default.Timer, contentDescription = "Disappearing timer")
+                        Icon(Icons.Default.Timer, contentDescription = stringResource(R.string.conv_timer))
                     }
                     DropdownMenu(expanded = timerMenuOpen, onDismissRequest = { timerMenuOpen = false }) {
                         DisappearingTimer.entries.forEach { timer ->
                             DropdownMenuItem(
-                                text = { Text(if (timer == currentTimer) "● ${timer.label}" else timer.label) },
+                                text = {
+                                    val label = stringResource(timer.labelRes)
+                                    Text(if (timer == currentTimer) stringResource(R.string.conv_timer_selected, label) else label)
+                                },
                                 onClick = { timerMenuOpen = false; viewModel.setTimer(timer) }
                             )
                         }
                     }
                     IconButton(onClick = { menuOpen = true }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "More")
+                        Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.conv_more))
                     }
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                         DropdownMenuItem(
-                            text = { Text("Rename contact") },
+                            text = { Text(stringResource(R.string.conv_rename)) },
                             onClick = { menuOpen = false; showRename = true }
                         )
                         DropdownMenuItem(
-                            text = { Text("Delete contact", color = MaterialTheme.colorScheme.error) },
+                            text = { Text(stringResource(R.string.conv_delete_contact), color = MaterialTheme.colorScheme.error) },
                             onClick = { menuOpen = false; showDelete = true }
                         )
                     }
@@ -339,9 +344,9 @@ fun ConversationScreen(
             // but no direct path (likely mobile data); FAILED = the peer never answered.
             val failureBanner = when (connection) {
                 RtcState.UNREACHABLE ->
-                    "Couldn't connect directly — you may both be on mobile data. Messages will go through once one of you is on Wi-Fi."
+                    stringResource(R.string.conv_banner_unreachable)
                 RtcState.FAILED ->
-                    "Couldn't reach them — they may be offline. Your messages will send automatically once you're both online."
+                    stringResource(R.string.conv_banner_failed)
                 else -> null
             }
             if (failureBanner != null) {
@@ -383,7 +388,7 @@ fun ConversationScreen(
                 // Empty new chat: gentle hint to rename (replaces the old name prompt).
                 if (messages.isEmpty() && contact?.nicknameSet == false) {
                     Text(
-                        "You're connected. Open the menu in the top corner and choose Rename contact to give them a name.",
+                        stringResource(R.string.conv_rename_hint),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
@@ -406,7 +411,8 @@ fun ConversationScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            "Replying to ${if (rt.fromMe) "yourself" else (contact?.displayName ?: "them")}",
+                            if (rt.fromMe) stringResource(R.string.conv_replying_self)
+                            else stringResource(R.string.conv_replying_to, contact?.displayName ?: stringResource(R.string.conv_them)),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -418,7 +424,7 @@ fun ConversationScreen(
                         )
                     }
                     IconButton(onClick = { replyingTo = null }) {
-                        Icon(Icons.Default.Close, contentDescription = "Cancel reply")
+                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.conv_cancel_reply))
                     }
                 }
             }
@@ -431,31 +437,31 @@ fun ConversationScreen(
             ) {
                 if (isRecording) {
                     IconButton(onClick = { viewModel.cancelRecording() }) {
-                        Icon(Icons.Default.Close, contentDescription = "Cancel recording",
+                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.conv_cancel_recording),
                             tint = MaterialTheme.colorScheme.error)
                     }
                     Text(
-                        "● Recording voice message…",
+                        stringResource(R.string.conv_recording),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.weight(1f)
                     )
                     IconButton(onClick = { viewModel.stopAndSendRecording() }) {
-                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send voice",
+                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = stringResource(R.string.conv_send_voice),
                             tint = MaterialTheme.colorScheme.primary)
                     }
                 } else {
                     var attachMenuOpen by remember { mutableStateOf(false) }
                     IconButton(onClick = { attachMenuOpen = true }) {
-                        Icon(Icons.Default.AddPhotoAlternate, contentDescription = "Attach media")
+                        Icon(Icons.Default.AddPhotoAlternate, contentDescription = stringResource(R.string.conv_attach))
                     }
                     DropdownMenu(expanded = attachMenuOpen, onDismissRequest = { attachMenuOpen = false }) {
                         DropdownMenuItem(
-                            text = { Text("Photo") },
+                            text = { Text(stringResource(R.string.conv_photo)) },
                             onClick = { attachMenuOpen = false; imagePicker.launch("image/*") }
                         )
                         DropdownMenuItem(
-                            text = { Text("Video") },
+                            text = { Text(stringResource(R.string.conv_video)) },
                             onClick = { attachMenuOpen = false; videoPicker.launch("video/*") }
                         )
                     }
@@ -463,13 +469,13 @@ fun ConversationScreen(
                         value = draft,
                         onValueChange = { draft = it },
                         modifier = Modifier.weight(1f),
-                        placeholder = { Text("Message") },
+                        placeholder = { Text(stringResource(R.string.conv_message_hint)) },
                         maxLines = 4,
                         shape = RoundedCornerShape(24.dp)
                     )
                     if (draft.isBlank()) {
                         IconButton(onClick = { tryRecord() }) {
-                            Icon(Icons.Default.Mic, contentDescription = "Record voice",
+                            Icon(Icons.Default.Mic, contentDescription = stringResource(R.string.conv_record_voice),
                                 tint = MaterialTheme.colorScheme.primary)
                         }
                     } else {
@@ -482,7 +488,7 @@ fun ConversationScreen(
                         ) {
                             Icon(
                                 Icons.AutoMirrored.Filled.Send,
-                                contentDescription = "Send",
+                                contentDescription = stringResource(R.string.conv_send),
                                 tint = MaterialTheme.colorScheme.primary
                             )
                         }
@@ -497,7 +503,7 @@ fun ConversationScreen(
         var nameDraft by remember { mutableStateOf(contact?.displayName.orEmpty()) }
         AlertDialog(
             onDismissRequest = { showRename = false },
-            title = { Text("Rename contact") },
+            title = { Text(stringResource(R.string.conv_rename)) },
             text = {
                 OutlinedTextField(
                     value = nameDraft,
@@ -509,35 +515,32 @@ fun ConversationScreen(
                 TextButton(onClick = {
                     viewModel.rename(nameDraft)
                     showRename = false
-                }) { Text("Save") }
+                }) { Text(stringResource(R.string.action_save)) }
             },
             dismissButton = {
-                TextButton(onClick = { showRename = false }) { Text("Cancel") }
+                TextButton(onClick = { showRename = false }) { Text(stringResource(R.string.action_cancel)) }
             }
         )
     }
 
     if (showDelete) {
-        val name = contact?.displayName ?: "this contact"
+        val name = contact?.displayName ?: stringResource(R.string.conv_this_contact)
         AlertDialog(
             onDismissRequest = { showDelete = false },
-            title = { Text("Delete contact?") },
+            title = { Text(stringResource(R.string.conv_delete_title)) },
             text = {
-                Text(
-                    "This permanently removes $name along with the entire conversation, " +
-                    "shared media, and encryption keys on this device. It cannot be undone."
-                )
+                Text(stringResource(R.string.conv_delete_body, name))
             },
             confirmButton = {
                 TextButton(onClick = {
                     showDelete = false
                     viewModel.deleteContact()
                 }) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDelete = false }) { Text("Cancel") }
+                TextButton(onClick = { showDelete = false }) { Text(stringResource(R.string.action_cancel)) }
             }
         )
     }
@@ -546,6 +549,8 @@ fun ConversationScreen(
 
     // Fullscreen image viewer overlay — inside the Box so it stacks over the
     // Scaffold and stays within the Activity's FLAG_SECURE window.
+    val savedToGallery = stringResource(R.string.conv_saved_gallery)
+    val saveFailed = stringResource(R.string.conv_save_failed)
     viewerMessage?.let { msg ->
         FullscreenImageViewer(
             message = msg,
@@ -554,7 +559,7 @@ fun ConversationScreen(
             onSave = {
                 viewModel.saveToGallery(msg) { ok ->
                     scope.launch {
-                        snackbarHostState.showSnackbar(if (ok) "Saved to gallery" else "Could not save")
+                        snackbarHostState.showSnackbar(if (ok) savedToGallery else saveFailed)
                     }
                 }
             },

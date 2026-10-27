@@ -19,11 +19,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.aura.R
 
 /**
  * Mutual-code verification gate shown for a VERIFY-state contact. Each phone displays
@@ -46,17 +48,17 @@ internal fun VerifyPanel(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text("Verify this contact", style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(R.string.verify_title), style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(8.dp))
         Text(
-            "Read your code to them, and type the code shown on their phone. This confirms no one is in the middle.",
+            stringResource(R.string.verify_desc),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
         Spacer(Modifier.height(28.dp))
         Text(
-            "Your code",
+            stringResource(R.string.verify_your_code),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -71,7 +73,7 @@ internal fun VerifyPanel(
             CircularProgressIndicator()
             Spacer(Modifier.height(12.dp))
             Text(
-                "Code accepted. Waiting for them to enter yours…",
+                stringResource(R.string.verify_accepted),
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center
             )
@@ -79,7 +81,7 @@ internal fun VerifyPanel(
             OutlinedTextField(
                 value = entry,
                 onValueChange = { v -> if (v.length <= 6 && v.all(Char::isDigit)) entry = v },
-                label = { Text("Their code") },
+                label = { Text(stringResource(R.string.verify_their_code)) },
                 singleLine = true,
                 isError = error,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword)
@@ -87,13 +89,13 @@ internal fun VerifyPanel(
             if (error) {
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "That code didn't match. Try again.",
+                    stringResource(R.string.verify_mismatch),
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall
                 )
             }
             Spacer(Modifier.height(16.dp))
-            Button(onClick = { onSubmit(entry) }, enabled = entry.length == 6) { Text("Verify") }
+            Button(onClick = { onSubmit(entry) }, enabled = entry.length == 6) { Text(stringResource(R.string.verify_action)) }
         }
     }
 }

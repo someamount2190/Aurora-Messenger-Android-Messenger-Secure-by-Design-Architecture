@@ -11,6 +11,10 @@ Messages reach contacts behind any network, and you choose who can see your IP a
 contacts are unaffected), and the app needs the matching rendezvous server.
 
 ### Added
+- **Russian translation** and a language picker (Settings → Appearance → Language: system
+  default, English, Русский). On Android 13+ Aurora also appears in the phone's per-app
+  language settings. All UI text now lives in string resources, and a unit test fails the
+  build if a translation is missing a string or a placeholder.
 - **Blind relay.** When neither the peer-to-peer data channel nor a direct connection can
   reach a contact (for example both on mobile data), messages travel through the rendezvous
   server's relay. They stay end-to-end encrypted; the relay only routes them. An offline

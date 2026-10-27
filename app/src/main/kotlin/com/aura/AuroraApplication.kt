@@ -2,10 +2,12 @@ package com.aura
 
 import android.app.Activity
 import android.app.Application
+import android.content.Context
 import android.os.Bundle
 import com.aura.media.PlaintextScratch
 import com.aura.notify.AppForegroundTracker
 import com.aura.security.StartupMigrations
+import com.aura.settings.AppLocale
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -18,6 +20,11 @@ class AuroraApplication : Application() {
 
     @Inject lateinit var foregroundTracker: AppForegroundTracker
     @Inject lateinit var startupMigrations: StartupMigrations
+
+    // Pre-Android 13 in-app language (13+ uses the system per-app locale).
+    override fun attachBaseContext(base: Context) {
+        super.attachBaseContext(AppLocale.wrap(base))
+    }
 
     override fun onCreate() {
         super.onCreate()

@@ -84,6 +84,12 @@ android {
             )
         }
     }
+
+    // The in-app language picker switches locale at runtime, so an app bundle must ship
+    // every language rather than only the device's.
+    bundle {
+        language { enableSplit = false }
+    }
 }
 
 // Room schema export — captures the DB schema per version so migrations can be

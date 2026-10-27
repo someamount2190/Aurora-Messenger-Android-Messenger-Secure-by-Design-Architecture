@@ -1,6 +1,8 @@
 package com.aura.pairing
 
+import android.content.Context
 import android.util.Base64
+import com.aura.R
 import com.aura.crypto.HybridKem
 import com.aura.crypto.KemRatchetManager
 import com.aura.crypto.PrekeyManager
@@ -13,14 +15,16 @@ import com.aura.db.PairState
 import com.aura.identity.IdentityStore
 import com.aura.network.Rendezvous
 import com.aura.settings.AuroraSettings
-import org.json.JSONObject
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
+import org.json.JSONObject
 
 /**
  * Scanner side of pairing (we scanned their QR): post the request, and handle the
  * peer's accept/reject. See [PairingCoordinator] for the full flow.
  */
 class ScannerPairing @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val identityManager: IdentityStore,
     private val kem: HybridKem,
     private val pairingCrypto: PairingCrypto,
@@ -70,7 +74,7 @@ class ScannerPairing @Inject constructor(
         contactDao.upsert(
             ContactEntity(
                 nodeIdHex = payload.nodeIdHex,
-                displayName = DEFAULT_NAME,
+                displayName = context.getString(R.string.default_contact_name),
                 kemPubB64 = kemB64,
                 ed25519PubB64 = ed25519B64,
                 dilithiumPubB64 = null,                       // arrives in pairaccept

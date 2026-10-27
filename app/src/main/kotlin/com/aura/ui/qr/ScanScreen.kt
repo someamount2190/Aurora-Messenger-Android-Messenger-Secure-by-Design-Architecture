@@ -13,17 +13,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.QrCode2
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -40,11 +38,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.aura.R
 import com.aura.pairing.PairingCoordinator
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.BinaryBitmap
@@ -57,12 +57,12 @@ import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import javax.inject.Inject
 
 @HiltViewModel
 class ScanViewModel @Inject constructor(
@@ -86,7 +86,7 @@ class ScanViewModel @Inject constructor(
         viewModelScope.launch {
             _state.value = pairingManager.pairFromQr(content).fold(
                 onSuccess = { State.RequestSent },
-                onFailure = { State.Error(it.message ?: "Pairing failed") }
+                onFailure = { State.Error(it.message ?: context.getString(R.string.scan_pairing_failed)) }
             )
         }
     }
@@ -96,7 +96,7 @@ class ScanViewModel @Inject constructor(
         viewModelScope.launch {
             val content = withContext(Dispatchers.Default) { decodeQrFromUri(uri) }
             if (content == null) {
-                _state.value = State.Error("No QR code found in that image")
+                _state.value = State.Error(context.getString(R.string.scan_no_qr))
             } else {
                 onQrContent(content)
             }
@@ -199,10 +199,10 @@ fun ScanScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Add contact") },
+                title = { Text(stringResource(R.string.scan_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 }
             )
@@ -218,12 +218,12 @@ fun ScanScreen(
             verticalArrangement = Arrangement.Center
         ) {
             Text(
-                "Scan your friend's Aurora code",
+                stringResource(R.string.scan_heading),
                 style = MaterialTheme.typography.titleLarge
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                "Point the camera at their code, or pick a saved code image from your gallery.",
+                stringResource(R.string.scan_desc),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
@@ -234,17 +234,18 @@ fun ScanScreen(
                 CircularProgressIndicator()
                 Spacer(Modifier.height(12.dp))
                 Text(
-                    "Deriving shared secret…",
+                    stringResource(R.string.scan_deriving),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             } else {
+                val scanPrompt = stringResource(R.string.scan_prompt)
                 Button(
                     onClick = {
                         cameraLauncher.launch(
                             ScanOptions()
                                 .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-                                .setPrompt("Scan an Aurora code")
+                                .setPrompt(scanPrompt)
                                 .setBeepEnabled(false)
                                 .setOrientationLocked(true)
                         )
@@ -252,7 +253,7 @@ fun ScanScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(Icons.Default.CameraAlt, contentDescription = null)
-                    Text("  Scan with camera")
+                    Text("  " + stringResource(R.string.scan_camera))
                 }
                 Spacer(Modifier.height(12.dp))
                 OutlinedButton(
@@ -260,19 +261,19 @@ fun ScanScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(Icons.Default.PhotoLibrary, contentDescription = null)
-                    Text("  Pick from gallery")
+                    Text("  " + stringResource(R.string.scan_gallery))
                 }
 
                 Spacer(Modifier.height(24.dp))
                 HorizontalDivider()
                 Spacer(Modifier.height(16.dp))
                 Text(
-                    "…or show your code",
+                    stringResource(R.string.scan_or_show),
                     style = MaterialTheme.typography.titleMedium
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "Let a friend scan your code to add you. No setup needed.",
+                    stringResource(R.string.scan_show_desc),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -280,7 +281,7 @@ fun ScanScreen(
                 Spacer(Modifier.height(12.dp))
                 OutlinedButton(onClick = onShowMyCode, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Default.QrCode2, contentDescription = null)
-                    Text("  Show my code")
+                    Text("  " + stringResource(R.string.scan_show_my_code))
                 }
             }
         }

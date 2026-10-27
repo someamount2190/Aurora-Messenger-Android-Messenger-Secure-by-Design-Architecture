@@ -2,18 +2,21 @@ package com.aura.call
 
 import android.content.Context
 import android.util.Base64
+import com.aura.R
 import com.aura.crypto.toHex
 import com.aura.db.ContactDao
 import com.aura.db.MessageDao
 import com.aura.db.MessageEntity
 import com.aura.identity.IdentityStore
-import java.security.SecureRandom
-import java.util.UUID
 import com.aura.network.SyncEngine
 import com.aura.notify.Notifier
 import com.aura.service.WakeService
 import com.aura.transport.IpExposureGate
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.security.SecureRandom
+import java.util.UUID
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,8 +24,6 @@ import kotlinx.coroutines.launch
 import org.json.JSONObject
 import org.webrtc.IceCandidate
 import org.webrtc.SessionDescription
-import javax.inject.Inject
-import javax.inject.Singleton
 
 /**
  * Phase 7: encrypted WebRTC voice/video calls.
@@ -180,7 +181,7 @@ class CallController @Inject constructor(
             kotlinx.coroutines.delay(NO_ANSWER_TIMEOUT_MS)
             if (_call.value.state == CallState.OUTGOING) {
                 android.util.Log.i(TAG, "no answer — ending outgoing call")
-                _callError.tryEmit("No answer from ${_call.value.peerName ?: "the other device"}")
+                _callError.tryEmit(context.getString(R.string.call_err_no_answer, _call.value.peerName ?: context.getString(R.string.call_other_device)))
                 endCall(notifyPeer = true)
             }
         }
@@ -459,11 +460,11 @@ class CallController @Inject constructor(
 
     /** Surface an honest reason and end. Distinguishes never-connected from dropped. */
     private fun failCall() {
-        val name = _call.value.peerName ?: "the other device"
+        val name = _call.value.peerName ?: context.getString(R.string.call_other_device)
         val reason = if (callConnectedAtMs > 0L)
-            "Call with $name disconnected"
+            context.getString(R.string.call_err_disconnected, name)
         else
-            "Couldn't connect the call to $name — you may both be on mobile data. Try when one of you is on Wi-Fi."
+            context.getString(R.string.call_err_connect, name)
         _callError.tryEmit(reason)
         endCall(notifyPeer = false)
     }

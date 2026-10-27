@@ -6,7 +6,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -43,20 +43,22 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import kotlin.math.roundToInt
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
+import com.aura.R
 import com.aura.call.CallController
 import com.aura.call.CallState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
+import kotlin.math.roundToInt
 import org.webrtc.RendererCommon
 import org.webrtc.SurfaceViewRenderer
 import org.webrtc.VideoTrack
-import javax.inject.Inject
 
 @HiltViewModel
 class CallViewModel @Inject constructor(
@@ -165,17 +167,17 @@ fun CallScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                call.peerName ?: "Call",
+                call.peerName ?: stringResource(R.string.call_generic),
                 color = Color.White,
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold
             )
             Text(
                 when (call.state) {
-                    CallState.OUTGOING   -> "Calling…"
-                    CallState.INCOMING   -> "Incoming call"
-                    CallState.CONNECTING -> "Connecting…"
-                    CallState.CONNECTED  -> "Connected"
+                    CallState.OUTGOING   -> stringResource(R.string.call_calling)
+                    CallState.INCOMING   -> stringResource(R.string.call_incoming)
+                    CallState.CONNECTING -> stringResource(R.string.call_connecting)
+                    CallState.CONNECTED  -> stringResource(R.string.call_connected)
                     else -> ""
                 },
                 color = Color.White.copy(alpha = 0.8f),
@@ -192,8 +194,8 @@ fun CallScreen(
                     .fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                RoundButton(Icons.Default.CallEnd, Color.Red, "Decline") { manager.declineCall() }
-                RoundButton(Icons.Default.Call, Color(0xFF4CD97B), "Accept") { acceptCall() }
+                RoundButton(Icons.Default.CallEnd, Color.Red, stringResource(R.string.call_btn_decline)) { manager.declineCall() }
+                RoundButton(Icons.Default.Call, Color(0xFF4CD97B), stringResource(R.string.call_btn_accept)) { acceptCall() }
             }
         } else {
             Row(
@@ -205,17 +207,17 @@ fun CallScreen(
             ) {
                 RoundButton(
                     if (muted) Icons.Default.MicOff else Icons.Default.Mic,
-                    Color.DarkGray, "Mute"
+                    Color.DarkGray, stringResource(R.string.call_btn_mute)
                 ) { muted = manager.toggleMute() }
                 if (call.isVideo) {
                     RoundButton(
                         if (videoEnabled) Icons.Default.Videocam else Icons.Default.VideocamOff,
-                        Color.DarkGray, "Video"
+                        Color.DarkGray, stringResource(R.string.call_btn_video)
                     ) { manager.toggleVideo() }
                 }
-                RoundButton(Icons.Default.CallEnd, Color.Red, "End") { manager.endCall() }
+                RoundButton(Icons.Default.CallEnd, Color.Red, stringResource(R.string.call_btn_end)) { manager.endCall() }
                 if (call.isVideo) {
-                    RoundButton(Icons.Default.Cameraswitch, Color.DarkGray, "Flip") { manager.switchCamera() }
+                    RoundButton(Icons.Default.Cameraswitch, Color.DarkGray, stringResource(R.string.call_btn_flip)) { manager.switchCamera() }
                 }
             }
         }

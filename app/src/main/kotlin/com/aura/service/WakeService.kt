@@ -17,6 +17,7 @@ import androidx.core.content.ContextCompat
 import com.aura.AppWiring
 import com.aura.MainActivity
 import com.aura.R
+import com.aura.settings.AppLocale
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -39,6 +40,10 @@ class WakeService : Service() {
     // as fields so a START_STICKY restart re-asserts the correct type.
     private var callActive = false
     private var callVideo = false
+
+    override fun attachBaseContext(base: Context) {
+        super.attachBaseContext(AppLocale.wrap(base))
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -95,7 +100,7 @@ class WakeService : Service() {
         return NotificationCompat.Builder(this, CH_BACKGROUND)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("Aurora")
-            .setContentText("Staying reachable for messages and calls")
+            .setContentText(getString(R.string.wake_text))
             .setPriority(NotificationCompat.PRIORITY_MIN)
             .setOngoing(true)
             .setShowWhen(false)
@@ -109,9 +114,9 @@ class WakeService : Service() {
         if (mgr.getNotificationChannel(CH_BACKGROUND) != null) return
         mgr.createNotificationChannel(
             NotificationChannel(
-                CH_BACKGROUND, "Background connection", NotificationManager.IMPORTANCE_MIN
+                CH_BACKGROUND, getString(R.string.wake_ch), NotificationManager.IMPORTANCE_MIN
             ).apply {
-                description = "Keeps Aurora reachable to receive messages and calls"
+                description = getString(R.string.wake_ch_desc)
                 setShowBadge(false)
             }
         )

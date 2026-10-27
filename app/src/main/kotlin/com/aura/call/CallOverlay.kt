@@ -14,8 +14,12 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.TextView
+import com.aura.R
 import com.aura.notify.Notifier
 import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
+import kotlin.math.abs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -24,9 +28,6 @@ import kotlinx.coroutines.launch
 import org.webrtc.RendererCommon
 import org.webrtc.SurfaceViewRenderer
 import org.webrtc.VideoTrack
-import javax.inject.Inject
-import javax.inject.Singleton
-import kotlin.math.abs
 
 /**
  * Floating call window OVER OTHER APPS (the Messenger / Viber bubble). Shown while a
@@ -131,7 +132,7 @@ class CallOverlay @Inject constructor(
             bindTrack(callManager.remoteVideo.value)
         } else {
             val label = TextView(context).apply {
-                text = (peerName ?: "Call") + "\nOn call · tap to return"
+                text = context.getString(R.string.call_overlay_label, peerName ?: context.getString(R.string.call_generic))
                 setTextColor(Color.WHITE)
                 textSize = 12f
                 setPadding(dp(14), dp(12), dp(14), dp(12))
