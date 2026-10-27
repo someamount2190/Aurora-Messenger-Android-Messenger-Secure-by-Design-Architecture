@@ -295,4 +295,28 @@
     <string name="settings_language">Язык</string>
     <string name="settings_language_desc">Выберите язык Aurora. «Как в системе» — язык вашего телефона.</string>
     <string name="lang_system">Как в системе</string>
+
+    <!-- Пользовательский сервер рандеву (Настройки → Сеть → Сервер) -->
+    <string name="settings_server">Сервер</string>
+    <string name="server_title">Сервер</string>
+    <string name="server_current">Текущий сервер</string>
+    <string name="server_badge_default">Сервер Aurora по умолчанию</string>
+    <string name="server_badge_custom">Пользовательский сервер</string>
+    <string name="server_reset">Сбросить к серверу по умолчанию</string>
+    <string name="server_field_help">Для опытных пользователей: направьте Aurora через доверенный вам сервер рандеву вместо стандартного. Он должен использовать https.</string>
+    <string name="server_field_label">Адрес сервера (https://…)</string>
+    <string name="server_apply">Использовать этот сервер</string>
+    <string name="server_warn_title">Использовать свой сервер?</string>
+    <string name="server_warn_body">Aurora будет передавать ваше присутствие (сетевой адрес, по которому вы доступны) и зашифрованный трафик сопряжения и сигнализации через этот сервер вместо сервера Aurora. Ваши сообщения и звонки остаются зашифрованными сквозным шифрованием — сервер не может их прочитать, — но тот, кто управляет этим сервером, может видеть, когда вы в сети и с кем соединяетесь. Продолжайте, только если доверяете его оператору. Aurora запомнит сертификат этого сервера и предупредит вас, если он изменится.</string>
+    <string name="server_warn_continue">Продолжить</string>
+    <string name="server_probing">Проверка сервера…</string>
+    <string name="server_trust_title">Доверять этому серверу?</string>
+    <string name="server_trust_body">Aurora закрепит этот сертификат и откажется подключаться, если он изменится.</string>
+    <string name="server_trust_fingerprint">Отпечаток сертификата (SHA-256)</string>
+    <string name="server_trust_confirm">Доверять этому серверу</string>
+    <string name="server_err_blank">Введите адрес сервера.</string>
+    <string name="server_err_not_https">Сервер должен использовать https:// — обычный http не допускается.</string>
+    <string name="server_err_malformed">Это не похоже на корректный адрес https://.</string>
+    <string name="server_err_credentials">Удалите имя пользователя и пароль из адреса.</string>
+    <string name="server_err_unreachable">Не удалось связаться с сервером или проверить его. Проверьте адрес и то, что его сертификат доверенный.</string>
 </resources>

@@ -47,6 +47,7 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onOpenLegal: (String) -> Unit = {},
     onOpenShadowMesh: () -> Unit = {},
+    onOpenServer: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val developerMode by viewModel.settings.developerMode.collectAsState()
@@ -114,7 +115,7 @@ fun SettingsScreen(
                 onSetPin = { showSetPin = true },
                 onSetDecoy = { showSetDecoy = true }
             )
-            NetworkSection(viewModel, onOpenShadowMesh)
+            NetworkSection(viewModel, onOpenShadowMesh, onOpenServer)
             AboutLegalSection(onOpenLegal)
             DataSection(
                 onExport = { showExportDialog = true },

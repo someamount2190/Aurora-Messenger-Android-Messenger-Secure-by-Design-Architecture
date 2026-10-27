@@ -7,10 +7,17 @@ import com.aura.crypto.NodeIdentity
 import com.aura.crypto.toHex
 import com.aura.di.IoDispatcher
 import com.aura.server.RendezvousProtocol
+import com.aura.settings.AuroraSettings
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.CertificatePinner
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -30,48 +37,63 @@ import javax.inject.Singleton
 @Singleton
 class RendezvousClient @Inject constructor(
     private val signer: HybridSigner,
+    private val settings: AuroraSettings,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : Rendezvous {
-    private val http = pinned(
-        OkHttpClient.Builder()
-            .connectTimeout(5, TimeUnit.SECONDS)
-            .readTimeout(5, TimeUnit.SECONDS)
-    ).build()
+    private val scope = CoroutineScope(SupervisorJob() + ioDispatcher)
 
+    // The pinned clients depend on the current server + its pin, so they are rebuilt when
+    // the user switches servers (see init). @Volatile: request paths read whichever is current.
+    @Volatile private var http = client(connectSec = 5, readSec = 5)
     // Short-timeout client for candidate reachability probes during pairing.
-    private val probeHttp = pinned(
-        OkHttpClient.Builder()
-            .connectTimeout(2, TimeUnit.SECONDS)
-            .readTimeout(2, TimeUnit.SECONDS)
-    ).build()
-
+    @Volatile private var probeHttp = client(connectSec = 2, readSec = 2)
     // Long-read client for the parked /wait long-poll. The server holds the request
     // ~25s, so the read timeout must comfortably exceed that.
-    private val waitHttp = pinned(
-        OkHttpClient.Builder()
-            .connectTimeout(5, TimeUnit.SECONDS)
-            .readTimeout(35, TimeUnit.SECONDS)
-    ).build()
+    @Volatile private var waitHttp = client(connectSec = 5, readSec = 35)
+
+    init {
+        // Rebuild the pinned clients whenever the user points at a different server (or its
+        // trust-on-first-use pin changes), so a custom server takes effect without a restart.
+        scope.launch {
+            combine(settings.serverAddress, settings.serverPin) { addr, pin -> addr to pin }
+                .drop(1)
+                .collect {
+                    http = client(connectSec = 5, readSec = 5)
+                    probeHttp = client(connectSec = 2, readSec = 2)
+                    waitHttp = client(connectSec = 5, readSec = 35)
+                }
+        }
+    }
+
+    private fun client(connectSec: Long, readSec: Long): OkHttpClient =
+        pinned(
+            OkHttpClient.Builder()
+                .connectTimeout(connectSec, TimeUnit.SECONDS)
+                .readTimeout(readSec, TimeUnit.SECONDS)
+        ).build()
 
     /**
-     * Apply certificate pinning when the production server is configured for TLS.
-     * While [PINNED_HOST]/[PINNED_CERT_SHA256] are blank, pinning is off so the
-     * cleartext droplet and LAN/Server-Mode (http to arbitrary IPs) keep working.
-     * Once the rendezvous server is fronted with TLS: fill in the host + its SPKI
-     * SHA-256 pin below and change [com.aura.settings.AuroraSettings.DEFAULT_SERVER_ADDRESS]
-     * to "https://<host>". Pinning then blocks interception even with a rogue CA.
+     * Apply certificate pinning. The bundled production host ([PINNED_HOST]) carries a
+     * hard-coded SPKI pin (+ a backup intermediate pin so a leaf-key rotation isn't fatal).
+     * A user's **custom** HTTPS server is pinned to the certificate captured on first use
+     * ([com.aura.settings.AuroraSettings.serverPin], via [ServerUrlPolicy]), so a later rogue
+     * CA can't transparently intercept it. If no pins apply (e.g. the debug in-app server over
+     * http to a LAN IP), no pinner is set so cleartext discovery keeps working in debug builds.
      */
     private fun pinned(builder: OkHttpClient.Builder): OkHttpClient.Builder {
+        val cp = CertificatePinner.Builder()
         if (PINNED_HOST.isNotBlank() && PINNED_CERT_SHA256.isNotBlank()) {
-            val cp = CertificatePinner.Builder()
-                .add(PINNED_HOST, "sha256/$PINNED_CERT_SHA256")
-            // Backup pin (the issuing intermediate) so a forced leaf-key rotation
-            // can't lock every client out before an app update ships.
+            cp.add(PINNED_HOST, "sha256/$PINNED_CERT_SHA256")
             if (PINNED_CERT_SHA256_BACKUP.isNotBlank()) {
                 cp.add(PINNED_HOST, "sha256/$PINNED_CERT_SHA256_BACKUP")
             }
-            builder.certificatePinner(cp.build())
         }
+        val customPin = settings.serverPin.value
+        if (settings.isCustomServer && customPin.isNotBlank()) {
+            settings.serverAddress.value.toHttpUrlOrNull()?.host?.let { host -> cp.add(host, customPin) }
+        }
+        val pinner = cp.build()
+        if (pinner.pins.isNotEmpty()) builder.certificatePinner(pinner)
         return builder
     }
 

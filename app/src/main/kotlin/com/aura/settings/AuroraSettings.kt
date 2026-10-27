@@ -31,6 +31,17 @@ class AuroraSettings @Inject constructor(
     /** Rendezvous server base URL used when this device is a client. */
     val serverAddress: StateFlow<String> = _serverAddress
 
+    /** True when the user has pointed at a server other than the bundled default. */
+    val isCustomServer: Boolean get() = _serverAddress.value != DEFAULT_SERVER_ADDRESS
+
+    private val _serverPin = MutableStateFlow(prefs.getString(KEY_SERVER_PIN, "") ?: "")
+    /**
+     * Trust-on-first-use SPKI pin (OkHttp `sha256/…`) captured for a custom HTTPS server,
+     * so a later rogue CA can't transparently intercept it. Blank for the pinned default
+     * server (which carries its own hard-coded pin in [com.aura.network.RendezvousClient]).
+     */
+    val serverPin: StateFlow<String> = _serverPin
+
     private val _advertisedAddress = MutableStateFlow(prefs.getString(KEY_ADVERTISED, "") ?: "")
     /**
      * Optional "ip:port" override advertised in rendezvous check-ins instead of
@@ -155,6 +166,25 @@ class AuroraSettings @Inject constructor(
         _serverAddress.value = trimmed
     }
 
+    /**
+     * Point at a custom rendezvous server and remember its certificate pin (trust-on-first-use).
+     * [url] must already be validated HTTPS by [com.aura.network.ServerUrlPolicy]; [pin] is the
+     * OkHttp `sha256/…` SPKI pin captured on the first connection.
+     */
+    fun setCustomServer(url: String, pin: String) {
+        val trimmed = url.trim().trimEnd('/')
+        prefs.edit().putString(KEY_SERVER_ADDRESS, trimmed).putString(KEY_SERVER_PIN, pin).apply()
+        _serverAddress.value = trimmed
+        _serverPin.value = pin
+    }
+
+    /** Return to the bundled default server and drop the custom pin. */
+    fun clearCustomServer() {
+        prefs.edit().putString(KEY_SERVER_ADDRESS, DEFAULT_SERVER_ADDRESS).remove(KEY_SERVER_PIN).apply()
+        _serverAddress.value = DEFAULT_SERVER_ADDRESS
+        _serverPin.value = ""
+    }
+
     fun setAdvertisedAddress(address: String) {
         val trimmed = address.trim()
         prefs.edit().putString(KEY_ADVERTISED, trimmed).apply()
@@ -195,6 +225,7 @@ class AuroraSettings @Inject constructor(
         prefs.edit().clear().commit()
         _serverMode.value = false
         _serverAddress.value = DEFAULT_SERVER_ADDRESS
+        _serverPin.value = ""
         _advertisedAddress.value = ""
         _disappearingTimer.value = DisappearingTimer.OFF
         _themeMode.value = ThemeMode.SYSTEM
@@ -215,6 +246,7 @@ class AuroraSettings @Inject constructor(
         private const val KEY_SERVER_MODE     = "server_mode"
         private const val KEY_ADVERTISED      = "advertised_address"
         private const val KEY_SERVER_ADDRESS  = "server_address"
+        private const val KEY_SERVER_PIN      = "server_pin"
         private const val KEY_ONBOARDING_DONE = "onboarding_done"
         private const val KEY_CRYPTO_ERA      = "crypto_era"
         private const val KEY_SPLASH_SHOWN     = "splash_shown"

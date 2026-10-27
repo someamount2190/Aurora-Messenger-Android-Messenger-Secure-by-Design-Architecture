@@ -82,6 +82,7 @@ object Routes {
     const val CALL         = "call"
     const val SHARE        = "share"
     const val SHADOWMESH   = "shadowmesh"
+    const val SERVER       = "server"
     const val LEGAL        = "legal/{doc}"
     fun conversation(contactId: String) = "conversation/$contactId"
     fun legal(doc: String) = "legal/$doc"

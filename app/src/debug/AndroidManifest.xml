@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Debug builds only: the in-app rendezvous server (a developer tool, compiled into
+         debug builds only) serves http on a LAN, and LAN discovery probes use http, so
+         debug permits cleartext. Release forbids cleartext entirely (P1-07, see
+         src/main/AndroidManifest.xml). tools:replace overrides the release attribute. -->
+    <application
+        android:usesCleartextTraffic="true"
+        tools:replace="android:usesCleartextTraffic" />
+</manifest>

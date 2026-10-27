@@ -215,11 +215,37 @@ internal fun SecuritySection(
 }
 
 @Composable
-internal fun NetworkSection(viewModel: SettingsViewModel, onOpenShadowMesh: () -> Unit) {
+internal fun NetworkSection(
+    viewModel: SettingsViewModel,
+    onOpenShadowMesh: () -> Unit,
+    onOpenServer: () -> Unit = {}
+) {
     val shadowMesh by viewModel.settings.shadowMeshEnabled.collectAsState()
+    val serverAddress by viewModel.settings.serverAddress.collectAsState()
     SectionTitle(stringResource(R.string.settings_network))
     Card {
         Column(Modifier.padding(16.dp)) {
+            // Rendezvous server: default, or the user's own (HTTPS-only, trust-on-first-use).
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable(onClick = onOpenServer),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.settings_server), style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        stringResource(
+                            if (serverAddress == com.aura.settings.AuroraSettings.DEFAULT_SERVER_ADDRESS)
+                                R.string.server_badge_default else R.string.server_badge_custom
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
+            }
+            Spacer(Modifier.height(12.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(12.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically

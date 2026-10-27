@@ -40,13 +40,14 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:allowBackup="false"
         android:theme="@style/Theme.Aurora"
-        android:usesCleartextTraffic="true">
-        <!-- usesCleartextTraffic: the production rendezvous server now runs over
-             TLS with certificate pinning (https://api.auroramessenger.com, see
-             RendezvousClient). This flag stays on only for local-network paths —
-             the developer-mode server override (http://10.0.2.2:8080) and LAN
-             rendezvous probes. All message/media content is end-to-end encrypted
-             at the application layer regardless of transport. -->
+        android:usesCleartextTraffic="false">
+        <!-- P1-07: release builds forbid cleartext entirely — every server Aurora talks to
+             must be HTTPS (the pinned production server, and user custom servers which are
+             HTTPS-only, see ServerSettingsScreen). The only cleartext consumers (the in-app
+             rendezvous server over http on a LAN, and LAN discovery probes) are developer
+             tools compiled into debug builds only, so src/debug/AndroidManifest.xml re-enables
+             cleartext there. Message/media content is end-to-end encrypted regardless. -->
+
 
         <!-- Shares decrypted media from memory (no plaintext file); read access is granted per
              link by the share intent. Not exported. -->

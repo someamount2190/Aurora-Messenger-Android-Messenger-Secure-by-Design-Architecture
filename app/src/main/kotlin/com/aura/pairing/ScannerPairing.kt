@@ -45,11 +45,12 @@ class ScannerPairing @Inject constructor(
         require(payload.nodeIdHex != myNodeIdHex) { "That's your own code" }
         require(!settings.isBlocked(payload.nodeIdHex)) { "This contact is blocked" }
 
-        // Host code: adopt the issuer's reachable rendezvous address.
-        if (payload.isHostCode) {
-            val reachable = rendezvousClient.firstReachable(payload.rendezvousCandidates)
-            settings.setServerAddress(reachable ?: payload.rendezvousCandidates.first())
-        }
+        // P1-02: a scanned QR must NEVER silently switch this device's rendezvous server
+        // (that let a hostile code redirect all of a victim's presence/signaling traffic,
+        // even to a plain-http host). We no longer adopt a host code's address. To use a
+        // different server the user sets it explicitly in Settings → Network → Server, which
+        // is HTTPS-only and pins the certificate on first use (see ServerSettingsScreen).
+        // The payload's `rendezvousCandidates` are ignored here by design.
 
         val existing = contactDao.byNodeId(payload.nodeIdHex)
         if (existing != null && existing.pairState != PairState.REQUESTED) return@runCatching Unit

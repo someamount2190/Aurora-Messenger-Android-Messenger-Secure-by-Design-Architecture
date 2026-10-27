@@ -39,6 +39,16 @@ contacts are unaffected), and the app needs the matching rendezvous server.
 - Bouncy Castle 1.84 → 1.85 (CVE-2026-8763, CVE-2026-13506; neither was reachable from Aurora).
 
 ### Security
+- **You can point Aurora at your own rendezvous server.** Settings → Network → Server lets you use a
+  server you run instead of the default. It is **HTTPS-only**, shows a plain-language warning that the
+  operator can see when you're online and who you connect to (your messages and calls stay
+  end-to-end encrypted), and **pins the server's certificate on first use** so a later rogue CA can't
+  silently intercept it. One tap resets to the default; a duress wipe also restores the default.
+- **A scanned QR code can no longer change your server.** Previously a "host code" silently switched
+  your rendezvous server — even to a plain-http host — which let a hostile code redirect all of your
+  presence and signaling traffic. Scanning never changes the server now; use the Server setting above.
+- **Release builds forbid cleartext (http) entirely.** Every server a release build talks to must be
+  HTTPS. The only cleartext users (the developer in-app server and LAN discovery) are debug-only.
 - **The developer tools are no longer built into release.** "Server Mode" (the in-app
   rendezvous server, which opened a listening HTTP port on the device), the advertised-address
   and check-in test tools, and the whole developer settings section now live in a debug-only

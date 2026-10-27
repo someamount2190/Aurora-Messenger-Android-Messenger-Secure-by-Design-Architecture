@@ -139,6 +139,14 @@ jobs:
           fi
           echo "OK: no developer-only code in release dex"
 
+      - name: Cleartext guard (release forbids cleartext; debug allows it)
+        run: |
+          grep -q 'android:usesCleartextTraffic="false"' app/src/main/AndroidManifest.xml \
+            || { echo "::error::src/main manifest must set usesCleartextTraffic=false (P1-07)"; exit 1; }
+          grep -q 'android:usesCleartextTraffic="true"' app/src/debug/AndroidManifest.xml \
+            || { echo "::error::src/debug manifest must re-enable cleartext for the dev in-app server"; exit 1; }
+          echo "OK: release HTTPS-only, debug cleartext allowed"
+
       # Known-vulnerability scan of the dependencies that actually ship: resolve the release
       # and crypto runtime graphs, then scan them. Binary pinned by SHA-256.
       - name: OSV-Scanner (dependencies)

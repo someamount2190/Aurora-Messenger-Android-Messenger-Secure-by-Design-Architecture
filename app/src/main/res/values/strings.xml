@@ -294,4 +294,28 @@
     <string name="settings_language">Language</string>
     <string name="settings_language_desc">Choose the language Aurora uses. System default follows your phone.</string>
     <string name="lang_system">System default</string>
+
+    <!-- Custom rendezvous server (Settings → Network → Server) -->
+    <string name="settings_server">Server</string>
+    <string name="server_title">Server</string>
+    <string name="server_current">Current server</string>
+    <string name="server_badge_default">Aurora default</string>
+    <string name="server_badge_custom">Custom server</string>
+    <string name="server_reset">Reset to default</string>
+    <string name="server_field_help">Advanced: route Aurora through a rendezvous server you trust instead of the default. It must use https.</string>
+    <string name="server_field_label">Server address (https://…)</string>
+    <string name="server_apply">Use this server</string>
+    <string name="server_warn_title">Use a custom server?</string>
+    <string name="server_warn_body">Aurora will send your presence (the network address you are reachable at) and your encrypted pairing and signaling traffic through this server instead of Aurora\'s. Your messages and calls stay end-to-end encrypted — the server cannot read them — but whoever runs this server can see when you are online and who you connect to. Only continue if you trust the operator. Aurora will remember this server\'s certificate and warn you if it ever changes.</string>
+    <string name="server_warn_continue">Continue</string>
+    <string name="server_probing">Checking the server…</string>
+    <string name="server_trust_title">Trust this server?</string>
+    <string name="server_trust_body">Aurora will pin this certificate and refuse to connect if it changes.</string>
+    <string name="server_trust_fingerprint">Certificate fingerprint (SHA-256)</string>
+    <string name="server_trust_confirm">Trust this server</string>
+    <string name="server_err_blank">Enter a server address.</string>
+    <string name="server_err_not_https">The server must use https:// — plain http is not allowed.</string>
+    <string name="server_err_malformed">That doesn\'t look like a valid https:// address.</string>
+    <string name="server_err_credentials">Remove the username/password from the address.</string>
+    <string name="server_err_unreachable">Couldn\'t reach or verify that server. Check the address and that its certificate is trusted.</string>
 </resources>

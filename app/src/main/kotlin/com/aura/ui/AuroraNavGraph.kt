@@ -121,11 +121,15 @@ internal fun AuroraNavHost(
             SettingsScreen(
                 onBack = { navController.popBackStack() },
                 onOpenLegal = { doc -> navController.navigate(Routes.legal(doc)) },
-                onOpenShadowMesh = { navController.navigate(Routes.SHADOWMESH) }
+                onOpenShadowMesh = { navController.navigate(Routes.SHADOWMESH) },
+                onOpenServer = { navController.navigate(Routes.SERVER) }
             )
         }
         composable(Routes.SHADOWMESH) {
             ShadowMeshScreen(onBack = { navController.popBackStack() })
+        }
+        composable(Routes.SERVER) {
+            com.aura.ui.settings.ServerSettingsScreen(onBack = { navController.popBackStack() })
         }
         composable(
             Routes.CONVERSATION,
