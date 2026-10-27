@@ -47,6 +47,8 @@ class TcpMessageServer @Inject constructor(
     // Connection-flood guards (a frame can be large and is read pre-authentication).
     private val activeConnections = java.util.concurrent.atomic.AtomicInteger(0)
     private val connectionsByIp = java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicInteger>()
+    // Bounds relay-proxy abuse volume per source IP (ShadowMesh); see RelayRateLimiter.
+    private val relayRateLimiter = RelayRateLimiter()
 
     /** Phase 6 registers a handler for sealed control payloads (disappearing-timer sync). */
     var controlHandler: (suspend (fromNodeIdHex: String, plaintext: JSONObject) -> Unit)? = null
@@ -109,6 +111,7 @@ class TcpMessageServer @Inject constructor(
     private suspend fun handleConnection(socket: Socket) {
         socket.use { s ->
             s.soTimeout = SOCKET_TIMEOUT_MS
+            val srcIp = s.inetAddress?.hostAddress ?: "?"
             val input = s.getInputStream()
             val output = s.getOutputStream()
             while (true) {
@@ -116,7 +119,7 @@ class TcpMessageServer @Inject constructor(
                 when (frame.optString("t")) {
                     "msg"   -> processMsg(frame)?.let { WireFrames.write(output, it) }
                     "ctl"   -> processCtl(frame)?.let { WireFrames.write(output, it) }
-                    "relay" -> handleRelay(frame, output)
+                    "relay" -> handleRelay(frame, output, srcIp)
                     "media" -> { if (mediaHandler?.invoke(frame, s) != true) break }
                     else    -> break
                 }
@@ -203,10 +206,12 @@ class TcpMessageServer @Inject constructor(
     }
 
     /** Single-hop onion relay: forward opaque bytes, pipe one response frame back. */
-    private fun handleRelay(frame: JSONObject, output: java.io.OutputStream) {
+    private fun handleRelay(frame: JSONObject, output: java.io.OutputStream, srcIp: String) {
         // ShadowMesh is opt-in: only relay on behalf of other users when the user
         // has joined the relay network (Terms §9 / Privacy §6). Otherwise ignore.
         if (!settings.shadowMeshEnabled.value) return
+        // Bound relay-proxy abuse volume per source (on top of the connection cap + SSRF guard).
+        if (!relayRateLimiter.tryAcquire(srcIp, System.currentTimeMillis())) return
         val ip = frame.optString("ip")
         val port = frame.optInt("port", -1)
         if (ip.isEmpty() || port !in 1..65535) return

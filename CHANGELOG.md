@@ -42,9 +42,10 @@ contacts are unaffected), and the app needs the matching rendezvous server.
 - Standalone `/find` now returns HTTP 200 and ten candidates for unknown nodes as well
   as registered nodes, reducing unauthenticated presence probing. Holders of the target
   verification keys can still recognize a valid record.
-- ShadowMesh relay targets reject additional reserved address ranges; Android task
-  affinity is empty to reduce task-hijacking exposure. Relay authentication and overlay
-  touch handling remain follow-up work.
+- ShadowMesh relay targets reject additional reserved address ranges; relay forwards are
+  now rate-limited per source so a relay node can't be driven as a high-volume proxy; and
+  Android task affinity is empty to reduce task-hijacking exposure. Full per-mesh-member relay
+  authorization (ShadowMesh Phase 3) and overlay touch handling remain follow-up work.
 - **Decrypted media no longer touches the disk.** Shared photos and videos were left decrypted
   in the app cache, and a voice message's decrypted copy stayed there unless playback finished;
   neither the duress wipe, contact deletion nor disappearing messages removed them. Voice
