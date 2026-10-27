@@ -103,18 +103,24 @@ class KemRatchetManager(
     }
 
     /**
-     * Per-identity 6-digit SAS code, bound to [targetNodeIdHex], derived from the shared root
+     * Per-identity 8-digit SAS code, bound to [targetNodeIdHex], derived from the shared root
      * fingerprint. Both peers compute the same value for a given identity — so each shows its own
      * code and verifies the one read off the other's screen. A man-in-the-middle gets a different
      * root, hence different codes, and entry fails. Never transmitted.
+     *
+     * 8 digits (~26.6 bits) rather than 6 (~20 bits): an active MITM who runs a handshake with
+     * each side can try to grind its key material until the two sides' codes collide. At 20 bits
+     * that is ~2^20 handshakes (feasible within a pairing window); 8 digits raises it to ~10^8,
+     * which is not. (Label bumped to v2 so the longer code is unambiguous across versions.)
      */
     suspend fun sasCodeFor(contactNodeIdHex: String, targetNodeIdHex: String): String? {
         val sasFp = loadRecord(contactNodeIdHex)?.sasFp ?: return null
-        val bound = hkdf.derive(ikm = sasFp, info = "aura-sas-id-v1|$targetNodeIdHex".toByteArray(), outputLen = 4)
-        val bits20 = ((bound[0].toInt() and 0xFF) shl 12) or
-                     ((bound[1].toInt() and 0xFF) shl 4) or
-                     ((bound[2].toInt() and 0xFF) ushr 4)
-        return "%06d".format(bits20 % 1_000_000)
+        val bound = hkdf.derive(ikm = sasFp, info = "aura-sas-id-v2|$targetNodeIdHex".toByteArray(), outputLen = 4)
+        val bits32 = ((bound[0].toLong() and 0xFF) shl 24) or
+                     ((bound[1].toLong() and 0xFF) shl 16) or
+                     ((bound[2].toLong() and 0xFF) shl 8) or
+                     (bound[3].toLong() and 0xFF)
+        return "%08d".format(bits32 % 100_000_000L)
     }
 
     /** Local-only key for encrypting this contact's media at rest (never on the wire). */

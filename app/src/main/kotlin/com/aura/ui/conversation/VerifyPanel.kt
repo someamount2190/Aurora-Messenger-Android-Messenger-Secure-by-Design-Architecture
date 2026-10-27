@@ -80,7 +80,7 @@ internal fun VerifyPanel(
         } else {
             OutlinedTextField(
                 value = entry,
-                onValueChange = { v -> if (v.length <= 6 && v.all(Char::isDigit)) entry = v },
+                onValueChange = { v -> if (v.length <= 8 && v.all(Char::isDigit)) entry = v },
                 label = { Text(stringResource(R.string.verify_their_code)) },
                 singleLine = true,
                 isError = error,
@@ -95,7 +95,7 @@ internal fun VerifyPanel(
                 )
             }
             Spacer(Modifier.height(16.dp))
-            Button(onClick = { onSubmit(entry) }, enabled = entry.length == 6) { Text(stringResource(R.string.verify_action)) }
+            Button(onClick = { onSubmit(entry) }, enabled = entry.length == 8) { Text(stringResource(R.string.verify_action)) }
         }
     }
 }

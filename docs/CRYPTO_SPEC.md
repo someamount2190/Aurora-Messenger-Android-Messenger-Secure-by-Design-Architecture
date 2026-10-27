@@ -164,18 +164,20 @@ argument in [`PQ_RATCHET_DESIGN.md`](PQ_RATCHET_DESIGN.md); summary:
 
 ## 7. Short Authentication String (SAS)
 
-Each side computes a 6-digit code **bound to a target identity**, locally, never transmitted
+Each side computes an 8-digit code **bound to a target identity**, locally, never transmitted
 (from the 8-byte SAS fingerprint the `KemRatchetManager` derives from the root and stores at
 pairing):
 ```
-bound  = HKDF(ikm = sasFingerprint(8B), info = "aura-sas-id-v1|<targetNodeIdHex>", len = 4)
-bits20 = (bound[0]<<12) | (bound[1]<<4) | (bound[2] >> 4)
-code   = bits20 mod 1_000_000   (zero-padded to 6 digits)
+bound  = HKDF(ikm = sasFingerprint(8B), info = "aura-sas-id-v2|<targetNodeIdHex>", len = 4)
+bits32 = (bound[0]<<24) | (bound[1]<<16) | (bound[2]<<8) | bound[3]
+code   = bits32 mod 100_000_000   (zero-padded to 8 digits)
 ```
 At pairing each device shows its own code and types the other's. A man-in-the-middle derives a
 **different root** on each leg, so the fingerprints — and thus the codes — won't match, and
-entry fails. ~20 bits of comparison (≈1-in-1,048,576 blind-collision chance per attempt; entry
-is attempt-limited).
+entry fails. ~26.6 bits of comparison (≈1-in-10^8). The 8-digit length (raised from 6) also
+resists an active MITM that grinds its own key material to force the two sides' codes to
+collide: ~2^20 attempts at 6 digits is feasible within a pairing window, ~10^8 at 8 digits is
+not. Entry is also attempt-limited.
 
 ## 8. Prekeys (`PrekeyManager`)
 

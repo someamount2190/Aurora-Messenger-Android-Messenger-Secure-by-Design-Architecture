@@ -36,7 +36,7 @@ class KemRatchetManagerTest {
     private val ROOT = ByteArray(32) { 0x5A }
     private val BOB = "bob"; private val ALICE = "alice"
     // Frozen SAS code for root=0x5A×32, target="peer-identity" (this implementation's value).
-    private val PINNED_SAS = "386501"
+    private val PINNED_SAS = "00881921"
 
     @Test fun seed_thenInitiatorFirst_roundTrips() = runBlocking {
         val a = manager(); val b = manager()
@@ -127,7 +127,7 @@ class KemRatchetManagerTest {
         val codeFromB = b.sasCodeFor(ALICE, target)
         assertNotNull(codeFromA)
         assertEquals(codeFromA, codeFromB)
-        assertTrue(Regex("\\d{6}").matches(codeFromA!!))
+        assertTrue(Regex("\\d{8}").matches(codeFromA!!))
 
         // Advancing the wire ratchet must not disturb the static SAS fingerprint.
         a.sealNext(BOB, "msg".toByteArray(), aad)

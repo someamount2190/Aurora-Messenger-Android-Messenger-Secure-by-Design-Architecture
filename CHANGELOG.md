@@ -57,6 +57,10 @@ contacts are unaffected), and the app needs the matching rendezvous server.
   action. Another app on the phone can no longer silently answer your call — which would have
   opened your microphone (and camera, on a video call) to the caller — by sending a crafted
   message to Aurora.
+- **Pairing verification codes are now 8 digits (was 6).** The short code you compare when
+  pairing is longer so that an active man-in-the-middle cannot feasibly grind its own keys to
+  make the two sides' codes collide within the pairing window (~2^20 tries at 6 digits, ~10^8
+  at 8).
 
 ### Fixed
 - **Runs on 16 KB-page Android 15 devices.** The bundled SQLCipher native library was aligned
