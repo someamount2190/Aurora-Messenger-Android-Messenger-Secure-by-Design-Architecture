@@ -10,8 +10,9 @@ this table is a human-readable mirror. License details: [`THIRD-PARTY-NOTICES.md
 
 | Component | Module | Version | Role | Provenance |
 |---|---|---|---|---|
-| Bouncy Castle | `org.bouncycastle:bcprov-jdk18on` | 1.84 | X-Wing (ML-KEM-768+X25519), ML-DSA-65, Ed25519, HKDF/SHA3, Argon2id — pure-Java PQC | Maven Central |
-| Google Tink | `com.google.crypto.tink:tink` | 1.18.0 | XChaCha20-Poly1305 AEAD | Maven Central |
+| Bouncy Castle | `org.bouncycastle:bcprov-jdk18on` | 1.85 | X-Wing (ML-KEM-768+X25519), ML-DSA-65, Ed25519, HKDF/SHA3, Argon2id — pure-Java PQC | Maven Central |
+| Google Tink (JVM core) | `com.google.crypto.tink:tink` | 1.18.0 | XChaCha20-Poly1305 AEAD | Maven Central |
+| Google Tink (Android runtime) | `com.google.crypto.tink:tink-android` | 1.18.0 | Android AEAD runtime; kept in step with the JVM artifact | Maven Central |
 | SQLCipher | `net.zetetic:sqlcipher-android` | 4.5.6 | AES-256 encrypted database | Maven Central |
 | AndroidX Security | `androidx.security:security-crypto` | 1.1.0-alpha06 | EncryptedSharedPreferences + Keystore master key | Google Maven |
 | `com.aura:aura-crypto` | in-repo (`crypto/`) | 0.1.0 | Aurora's own crypto core | Built locally → `libs/maven` |
@@ -39,11 +40,13 @@ this table is a human-readable mirror. License details: [`THIRD-PARTY-NOTICES.md
 - **Vendored Maven repo** (`libs/maven/`): holds the locally built `com.aura:aura-crypto`
   artifact, so a fresh clone builds without external sibling folders. Auditors should confirm
   the vendored artifact matches the `crypto/` source.
-- **No native code:** the post-quantum stack is now pure-Java BouncyCastle (X-Wing/ML-DSA) +
+- **Pure-JVM cryptographic core:** the post-quantum stack is now pure-Java BouncyCastle (X-Wing/ML-DSA) +
   Google Tink — liboqs and its `jniLibs` `.so` files have been removed, so there is no JNI
-  surface to audit. ⚠ BouncyCastle's X-Wing tracks an in-progress IETF draft; pin the version.
+  surface in the crypto module. SQLCipher and WebRTC still ship native libraries in the app. ⚠ BouncyCastle's X-Wing tracks an in-progress IETF draft; pin the version.
 
 ## Notes
+- SQLCipher remains at 4.5.6 and AGP at 8.3.2. The planned 16 KB compatibility upgrade
+  is not shipped; see [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
 - This human-readable inventory **is** the project's SBOM; a machine-readable CycloneDX export
   is not published.
 - Optional provenance follow-up: recording upstream hashes/commits for the vendored

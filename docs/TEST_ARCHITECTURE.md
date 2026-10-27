@@ -1,6 +1,10 @@
 # Aurora Messenger — Test Architecture
 
-Status: **design** (no tests exist yet). This document specifies the full test
+> Design and implementation plan: some proposed tiers and CI jobs below are historical.
+> The crypto module is now entirely pure JVM; liboqs and the native crypto test tier
+> are retired. Current executed suites and CI checks are in [TEST_STATUS.md](TEST_STATUS.md).
+
+Status: **historical design blueprint** (automated suites now exist; see the status link above). This document specifies the full test
 architecture down to the class/method level. It is the blueprint for building the
 suite; nothing here is implemented yet.
 

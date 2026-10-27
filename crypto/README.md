@@ -32,7 +32,7 @@ stack — post-quantum primitives included — runs on the CI test tier.
 
 `api` (exposed transitively to consumers):
 
-- `org.bouncycastle:bcprov-jdk18on:1.84` — X-Wing, ML-DSA-65, X25519/Ed25519, SHA-3, HKDF
+- `org.bouncycastle:bcprov-jdk18on:1.85` — X-Wing, ML-DSA-65, X25519/Ed25519, SHA-3, HKDF
 - `com.google.crypto.tink:tink:1.18.0` — XChaCha20-Poly1305 (Bouncy Castle ships no
   XChaCha engine); plain JVM jar, not the Android AAR
 - `org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0`

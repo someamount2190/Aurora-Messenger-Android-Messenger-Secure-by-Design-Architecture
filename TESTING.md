@@ -1,5 +1,11 @@
 # Aurora — Phase test log
 
+> Historical test record. Entries below describe the builds and environments at their
+> stated dates, including the retired liboqs/Kyber implementation and old `/find` behavior.
+> They are not a current release certification. For the current automated-test baseline,
+> see [`docs/TEST_STATUS.md`](docs/TEST_STATUS.md); for pending work, see
+> [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md).
+
 Per the build spec: every phase is tested on two emulators before moving on.
 Emulator A (Alice) = AVD `Pixel_8` (emulator-5554). Emulator B (Bob) = AVD `Pixel_8_2` (emulator-5556).
 

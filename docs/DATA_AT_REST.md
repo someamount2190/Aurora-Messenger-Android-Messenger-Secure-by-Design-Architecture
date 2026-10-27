@@ -14,8 +14,12 @@ Everything persisted on the device, and the key protecting each. Key lifecycle i
 | **Android Keystore** | Master key (wraps the above) | Hardware/TEE | Root of the at-rest hierarchy |
 
 ## What is NOT stored
-- No server-side message content, contact graph, or history (rendezvous is in-memory, no logs).
-- No plaintext media files.
+- No persistent server-side message history. The server temporarily buffers sealed frames
+  (up to 60 seconds for offline relay delivery) and sees live routing relationships;
+  in-memory state and lack of request logs do not hide those relationships from its operator.
+- No app-managed plaintext media cache. Playback and sharing decrypt in memory through a
+  non-exported media provider. Startup and wipe paths clear legacy cache files. Explicit
+  exports and recipient apps may retain their own copies.
 - No backup passphrase.
 - No third-party push tokens (wake is via the contentless `/tap`+`/wait` long-poll).
 
@@ -27,7 +31,7 @@ Everything persisted on the device, and the key protecting each. Key lifecycle i
   `contactremove` so the peer wipes its copy too.
 
 ## Hardening at rest
-- `FLAG_SECURE` blocks screenshots/screen-recording and content in the recents preview.
+- In release builds, `FLAG_SECURE` blocks screenshots/screen-recording and content in the recents preview.
 - App lock with a **decoy PIN** (opens an empty app) and optional **duress wipe**.
 
 ## Residual risk

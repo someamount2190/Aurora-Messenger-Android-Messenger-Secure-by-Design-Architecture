@@ -2,12 +2,14 @@
 
 The rendezvous server only maps a short-lived `nodeId → address` so peers can find each
 other and wake a sleeping device. It is **in-memory only** (restart wipes all state),
-**logs no payloads/IPs/nodeIds**, and is never in the path of message content. This spec
+**logs no payloads/IPs/nodeIds**, and can route opaque encrypted message frames via the blind relay (§9). This spec
 describes the canonical **standalone Node.js server** (`rendezvous-server/index.js`,
-deployed at `api.auroramessenger.com`); the embeddable in-app server (`com.aura.server`,
+configured by the client for the public API hostname); the embeddable in-app server (`com.aura.server`,
 NanoHTTPD) is byte-compatible with differences noted in §7.
 
-Transport: HTTPS with **certificate pinning** in the client (a rogue CA cannot intercept).
+Transport: production deployments require HTTPS. The client pins the configured public
+service; custom-server trust and HTTPS enforcement remain follow-up work (see
+[`PROJECT_STATUS.md`](PROJECT_STATUS.md)).
 All bodies are JSON unless noted. All signed strings are UTF-8 with `|` delimiters.
 
 ## 1. Endpoints
@@ -16,7 +18,7 @@ All bodies are JSON unless noted. All signed strings are UTF-8 with `|` delimite
 |---|---|---|---|
 | `POST /checkin` | signed body | Register `nodeId → ip:port`, 15-min TTL | `{status:"registered", ttlSeconds:900}` |
 | `GET /checkin` | none | Liveness hint | `{status:"ok", hint:...}` |
-| `GET /find/:nodeId` | none | Return **10** candidates (1 real + 9 decoys, shuffled) | `{candidates:[{ip,port,timestamp,signature}×10]}` |
+| `GET /find/:nodeId` | none | HTTP 200 with **10** shuffled candidates: registered = 1 real + 9 decoys; unknown = 10 decoys | `{candidates:[{ip,port,timestamp,signature}×10]}` |
 | `POST /signal/:nodeId` | none | Enqueue one opaque (E2E) payload; wakes a parked `/wait` | `{status:"queued"}` |
 | `GET /signal/:nodeId` | drain headers | Drain queued payloads | `{payloads:[...]}` |
 | `POST /tap/:nodeId` | none | Contentless wake | `{status:"tapped"}` |
@@ -47,15 +49,16 @@ the key holder can read their own signals or publish their own prekeys.
 ## 3. The `/find` decoy format
 
 `GET /find/:nodeId` returns exactly **10** candidates `{ip, port, timestamp, signature}`,
-**shuffled**:
-- **1 real** = the node's stored check-in with its **real hybrid signature** (3361 B).
+**shuffled**, with HTTP 200 for both registered and unknown targets:
+- For an unknown target, all ten entries are decoys; no registration-specific 404.
+- For a registered target, **1 real** = the node's stored check-in with its **real hybrid signature** (3377 B).
 - **9 decoys** = random RFC-1918-style private IPs, timestamps up to 5 min in the past, and
-  **random padding signatures of identical length** (3361 B).
+  **random padding signatures of identical length** (3377 B).
 
-Only the legitimate caller can tell the real one apart: it re-derives
-`aura-checkin-v1|nodeId|ip|port|timestamp` per candidate and verifies the hybrid signature
-against the target's known keys — only the real candidate verifies. A passive observer of a
-`/find` response cannot identify the real address.
+Anyone who has the target's verification keys can test the real record by re-deriving
+`aura-checkin-v1|nodeId|ip|port|timestamp` per candidate and verifying the hybrid signature
+against the target's known keys — only the real candidate verifies. An observer without those keys cannot use signature verification to identify the real
+address. This padding does not hide the mapping from the server or prevent traffic analysis.
 
 ## 4. Constants (production / Node.js)
 
@@ -77,15 +80,15 @@ against the target's known keys — only the real candidate verifies. A passive 
 | `RELAY_BUFFER_TTL_MS` | 60 000 (frames held for an offline node) |
 | `RELAY_AUTH_TIMEOUT_MS` | 10 000 (unauthenticated sockets dropped) |
 | `RELAY_MAX_INFLIGHT_PER_SOCKET` / `RELAY_MSG_RATE_PER_MIN` / `RELAY_MAX_SOCKETS_PER_IP` | 256 / 600 / 16 |
-| `HYBRID_SIG_BYTES` | 3361 (4 + 3293 + 64) |
+| `HYBRID_SIG_BYTES` | 3377 (4 + 3309 + 64) |
 | `PORT` / `HOST` defaults | 8080 / `0.0.0.0` (production drop-in pins `127.0.0.1`, fronted by nginx) |
-| `STRICT_BINDING` | env `=1` to require nodeId↔key binding on every check-in |
+| `STRICT_BINDING` | On by default; `=0` explicitly opts into legacy unbound check-ins |
 
 ## 5. Identity binding (STRICT_BINDING)
 
 A check-in may carry `kemPub` + `dilithiumPub`. If present, the server enforces
 `nodeId == SHA3-256(kemPub ‖ signPub)` and rejects mismatches (HTTP 401). With
-`STRICT_BINDING=1` (set in production), a check-in **without** the binding keys is rejected,
+strict binding (enabled by default unless `STRICT_BINDING=0`), a check-in **without** the binding keys is rejected,
 fully closing nodeId squatting. The in-app server is always strict.
 
 ## 6. Wake (`/tap` + `/wait`) long-poll
@@ -109,14 +112,15 @@ Privacy Policy and analyzed in [`THREAT_MODEL.md`](THREAT_MODEL.md).
 
 ## 7. In-app server (`com.aura.server`) differences
 Used for local-network / host mode. Byte-compatible check-in/find/drain, but: `/find` rate
-limit **10**/min (vs 60), **always** strict binding, and **no** `/tap`, `/wait`, `/health`,
+limit **10**/min (vs 60), returns **404** for unknown nodes (unlike the standalone
+server's all-decoy HTTP 200), **always** strict binding, and **no** `/tap`, `/wait`, `/health`,
 `/source`, `/turn-credentials` or `/relay/stream` (clients fall back to direct paths). (The host-beacon UI that used it is currently dormant — see
 [`AUDIT_SCOPE.md`](AUDIT_SCOPE.md).)
 
 ## 8. Logging
 The server emits exactly two `console.log` lines at startup (listen address + AGPL source
 URL). No request payloads, IPs, nodeIds, queue contents, or prekey material are ever logged;
-nginx access logging for the API host is disabled. State is purely in-memory with a 15-min TTL.
+operators must also disable identifying reverse-proxy access logs to preserve this policy. State is purely in-memory with a 15-min TTL.
 
 ## 9. Blind relay (`/relay/stream`, protocol v2)
 

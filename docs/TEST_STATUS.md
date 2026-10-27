@@ -1,24 +1,42 @@
 # Test Implementation Status
 
 Tracks what's built against the plan in [`TEST_ARCHITECTURE.md`](TEST_ARCHITECTURE.md).
-Last updated: 2026-10-26 (relay protocol v2, post-quantum prekey verification, SDP fix).
+Last updated: 2026-10-27. Counts are recorded results from the hardening run,
+not a fresh execution during this documentation update. CI for source revision
+`9ebea7b` was checked and passed.
 
 ## Summary
 
 | | Verified green | Skipped |
 |---|---|---|
 | `crypto` module | **161** | 0 |
-| `app` module | **143** | 0 |
-| `rendezvous-server` (Node) | **17** | 0 |
-| **Total** | **321** | 0 |
+| `app` module | **179** | 0 |
+| `rendezvous-server` (Node) | **18** | 0 |
+| **Total** | **358** | 0 |
 
 Run (both pure-JVM/Robolectric, no native deps, CI-friendly):
 - `./gradlew -p crypto test` → 161 pass.
 - `./gradlew -p crypto publish` — **required before app tests locally**: the app consumes
   `aura-crypto` from the jar in `libs/maven`, so without it app tests run against stale crypto
   (CI does this automatically).
-- `./gradlew :app:testDebugUnitTest` → 143 pass.
-- `cd rendezvous-server && node --test` → 17 pass (real server process, HTTP + raw WebSocket).
+- `./gradlew :app:testDebugUnitTest` → 179 pass.
+- `cd rendezvous-server && node --test` → 18 pass (real server process, HTTP + raw WebSocket).
+
+## Additional validation recorded on 2026-10-27
+
+- Five Jazzer crypto targets ran approximately 45 minutes each, totaling about 168 million
+  inputs without a reported crash or forgery. Fuzz inputs are not counted as unit tests.
+- Server verification helpers were exercised with three million inputs without findings.
+- Emulator upgrade checks preserved identity and database access for the published
+  hardening changes. A forged external call-answer intent was rejected.
+- Release screenshot blocking, app-lock acceptance/rejection, and duress wipe were checked
+  on an emulator. These checks do not replace two-phone end-to-end testing.
+- Added regression coverage includes call-answer tokens, relay target restrictions,
+  decrypted-media sharing, incoming share URI validation, and backup KDF pins.
+- CI also runs gitleaks, dependency scanning, and the plaintext-write guardrail.
+
+Detailed security-work reports are maintained locally; they are not an independent audit.
+Open validation and compatibility work: [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
 
 ## Crypto — all pure-JVM now ✅
 

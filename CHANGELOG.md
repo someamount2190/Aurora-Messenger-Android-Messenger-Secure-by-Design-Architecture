@@ -2,7 +2,7 @@
 
 All notable changes to **Aurora Messenger** are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/), and the project uses a single pre-alpha
-line (`0.2.1-pre`) while the design stabilises.
+line (`0.3.0-pre`) while the design stabilises.
 
 ## [Unreleased]
 
@@ -35,6 +35,12 @@ contacts are unaffected), and the app needs the matching rendezvous server.
 - Bouncy Castle 1.84 → 1.85 (CVE-2026-8763, CVE-2026-13506; neither was reachable from Aurora).
 
 ### Security
+- Standalone `/find` now returns HTTP 200 and ten candidates for unknown nodes as well
+  as registered nodes, reducing unauthenticated presence probing. Holders of the target
+  verification keys can still recognize a valid record.
+- ShadowMesh relay targets reject additional reserved address ranges; Android task
+  affinity is empty to reduce task-hijacking exposure. Relay authentication and overlay
+  touch handling remain follow-up work.
 - **Decrypted media no longer touches the disk.** Shared photos and videos were left decrypted
   in the app cache, and a voice message's decrypted copy stayed there unless playback finished;
   neither the duress wipe, contact deletion nor disappearing messages removed them. Voice
@@ -72,8 +78,9 @@ slate — you and your contacts must both update, then pair again.
   Bouncy Castle 1.84 + Google Tink. **X-Wing** (FIPS 203 **ML-KEM-768** + X25519) replaces
   Kyber-1024 for key agreement, **ML-DSA-65** (FIPS 204) replaces Dilithium-3 as the
   post-quantum signature half (still paired with Ed25519), XChaCha20-Poly1305 moves to
-  Tink, and HKDF moves to the RFC 5869 HMAC-SHA-256 standard. No native code remains
-  anywhere in the stack.
+  Tink, and HKDF moves to the RFC 5869 HMAC-SHA-256 standard. The cryptographic core
+  is now pure JVM; the Android app still ships native
+  SQLCipher and WebRTC libraries.
 - **One post-quantum KEM Double Ratchet for all sealed traffic.** Messages, media and
   call/WebRTC signaling now run through an X-Wing KEM Double Ratchet with
   **post-compromise healing** — each direction change mixes fresh KEM entropy into the
@@ -341,8 +348,8 @@ with a signed APK attached as a release asset.
   DigitalOcean droplet behind Nginx with TLS (Let's Encrypt) and **certificate pinning**
   at `api.auroramessenger.com`.
 
-[Unreleased]: https://github.com/someamount2190/AuroraMessenger/compare/v0.2.2-pre...HEAD
-[0.2.2-pre]: https://github.com/someamount2190/AuroraMessenger/compare/v0.2.1-pre...v0.2.2-pre
-[0.2.1-pre]: https://github.com/someamount2190/AuroraMessenger/compare/v0.2.0-pre...v0.2.1-pre
-[0.2.0-pre]: https://github.com/someamount2190/AuroraMessenger/compare/v0.1.0-pre...v0.2.0-pre
-[0.1.0-pre]: https://github.com/someamount2190/AuroraMessenger/releases/tag/v0.1.0-pre
+[Unreleased]: https://github.com/someamount2190/aurora-messenger/compare/v0.3.0-pre...HEAD
+[0.2.2-pre]: https://github.com/someamount2190/aurora-messenger/compare/v0.2.1-pre...v0.2.2-pre
+[0.2.1-pre]: https://github.com/someamount2190/aurora-messenger/compare/v0.2.0-pre...v0.2.1-pre
+[0.2.0-pre]: https://github.com/someamount2190/aurora-messenger/compare/v0.1.0-pre...v0.2.0-pre
+[0.1.0-pre]: https://github.com/someamount2190/aurora-messenger/releases/tag/v0.1.0-pre

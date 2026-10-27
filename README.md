@@ -13,7 +13,8 @@ Aurora is built so that a conversation stays private even if:
 
 > **Status: pre-release (0.3.0-pre, plus unreleased changes on `main`).** The cryptographic
 > core, pairing, messaging, media, calls, relay, and at-rest protection are implemented and
-> covered by 321 automated tests. **It has not had an independent security audit.** Don't rely
+> covered by automated tests (see the dated [test status](docs/TEST_STATUS.md)).
+> **It has not had an independent security audit.** Don't rely
 > on it for high-risk situations until it has.
 
 ---
@@ -65,7 +66,7 @@ Aurora is built so that a conversation stays private even if:
 | **Messaging** | Text, replies, emoji reactions, per-conversation disappearing-message timers, on-device conversation streaks |
 | **Media** | Photos, videos (in-app player with seek bar, decrypted in memory), voice messages; all stored encrypted |
 | **Calls** | Voice and video (WebRTC) with real ringing, lock-screen handling, an in-app ongoing-call bar and a floating overlay; calls survive leaving the app |
-| **Pairing** | QR code + mutual 6-digit verification; a man-in-the-middle makes the codes mismatch and pairing fails |
+| **Pairing** | QR code + mutual 6-digit verification; rejects mismatched codes, with the short-code limitation described below |
 | **Delivery** | Peer-to-peer data channel, direct TCP on the same network, or a blind relay as a last resort; offline messages are retried and the recipient is woken |
 | **Privacy** | Choose who may learn your IP address; no third-party push service; the server keeps no logs |
 | **Device security** | App lock with a **decoy PIN**, optional **duress wipe**, screenshot and recents blocking, root warning |
@@ -105,7 +106,7 @@ The pieces, in the order you meet them:
 |---|---|---|
 | 1 | Your phone generates its keys; their hash becomes your address (**nodeId**) | [§4](#4-your-identity) |
 | 2 | You scan a contact's QR code and run a forward-secret handshake | [§5](#5-pairing-with-a-contact) |
-| 3 | You both confirm a 6-digit code, which defeats man-in-the-middle attacks | [§5](#5-pairing-with-a-contact) |
+| 3 | You both confirm a 6-digit code to detect an intercepted pairing | [§5](#5-pairing-with-a-contact) |
 | 4 | Every message is sealed with a fresh key from a post-quantum ratchet | [§6](#6-how-a-message-is-encrypted) |
 | 5 | The sealed message takes the best available path to your contact | [§7](#7-how-a-message-travels) |
 
@@ -372,9 +373,10 @@ How the server limits even that:
 
 - **In memory only**, 15-minute record lifetime; a restart wipes everything.
 - **No logs** beyond two startup lines; no IPs, nodeIds, or payloads are logged.
-- **Decoy lookups:** a lookup returns 10 signed addresses, 9 of them decoys. Only the real
-  owner's signature verifies, and only the person who already knows the contact's keys can tell
-  which one it is.
+- **Decoy lookups:** the standalone server returns HTTP 200 with 10 candidates for both
+  registered and unknown nodes. Registered nodes have one signed record plus nine decoys;
+  unknown nodes have ten decoys. Someone with the target's verification keys can still
+  distinguish a valid record. The server itself knows the real mapping.
 - **Authenticated reads:** only the key holder can read their own queued signals or relayed frames.
 - **Signed check-ins** bound to the nodeId, so nobody can register your address.
 - **Rate limits and caps** on every endpoint, including each sender IP's share of a queue.
@@ -408,15 +410,17 @@ messenger's encryption; Aurora warns when it detects root, but can't prevent thi
 
 | Purpose | Algorithm | Parameters | Library |
 |---|---|---|---|
-| Key agreement | **X-Wing**: ML-KEM-768 (FIPS 203) + X25519 | NIST level 3 + Curve25519 | Bouncy Castle 1.84 |
-| Signatures | **ML-DSA-65** (FIPS 204) + **Ed25519** | 3309 B + 64 B; both must verify | Bouncy Castle 1.84 |
+| Key agreement | **X-Wing**: ML-KEM-768 (FIPS 203) + X25519 | NIST level 3 + Curve25519 | Bouncy Castle 1.85 |
+| Signatures | **ML-DSA-65** (FIPS 204) + **Ed25519** | 3309 B + 64 B; both must verify | Bouncy Castle 1.85 |
 | Encryption | **XChaCha20-Poly1305** | 256-bit key, 192-bit nonce | Google Tink 1.18 |
 | Key derivation | HKDF-SHA-256 (RFC 5869) | | Bouncy Castle |
 | Hashing / identity | SHA3-256 | | Bouncy Castle |
 | Backup passphrase | Argon2id | | Bouncy Castle |
 | Database | SQLCipher | AES-256 | SQLCipher 4.5.6 |
 
-Everything is pure JVM: no native crypto code. Correctness is checked against independent
+The `crypto` module is pure JVM. The Android app still includes native SQLCipher and
+WebRTC libraries; removing liboqs did not remove those native dependencies.
+Correctness is checked against independent
 references: **NIST ACVP** known-answer tests (ML-KEM-768, ML-DSA-65), **Wycheproof** edge-case
 corpora (X25519, Ed25519, XChaCha20-Poly1305, ML-KEM-768, ML-DSA-65), and the RFC 8032 / 7748 /
 5869 vectors. Exact wire formats and labels are in [`docs/CRYPTO_SPEC.md`](docs/CRYPTO_SPEC.md).
@@ -424,6 +428,12 @@ corpora (X25519, Ed25519, XChaCha20-Poly1305, ML-KEM-768, ML-DSA-65), and the RF
 ---
 
 ## 13. Security claims and non-claims
+
+Current limitations and pending validation are tracked in
+[`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md). In particular, the six-digit pairing
+code has about 20 bits of entropy; it does not offer unlimited resistance to an active
+attacker who can repeat handshakes. Server metadata privacy and 16 KB Android page-size
+compatibility also remain open work.
 
 **Aurora aims to guarantee:**
 
@@ -519,9 +529,10 @@ On Windows, use `.\gradlew.bat` and set `JAVA_HOME` (Android Studio's bundled `j
 | Suite | Tests | What it covers |
 |---|---|---|
 | `crypto` | 161 | Primitives, NIST ACVP and Wycheproof vectors, ratchet (incl. healing and attacks), prekeys and prekey verification |
-| `app` | 143 | Database and migrations, pairing and SAS, end-to-end message simulations, PQXDH handshake, relay client, SDP handling, security orchestration |
-| `rendezvous-server` | 17 | Relay auth and delivery, crash resistance, malformed frames, queue fairness, TURN gating, prekey bundles |
+| `app` | 179 | Database and migrations, pairing and SAS, end-to-end message simulations, PQXDH handshake, relay client, SDP handling, security orchestration |
+| `rendezvous-server` | 18 | Relay auth and delivery, crash resistance, malformed frames, queue fairness, TURN gating, prekey bundles |
 
+Counts above are the recorded 2026-10-27 baseline (358 total); they are not a new test run.
 All three run in GitHub Actions on every push. Details: [`docs/TEST_STATUS.md`](docs/TEST_STATUS.md).
 Some paths (live two-phone calls, QR camera scanning) still need physical devices.
 
