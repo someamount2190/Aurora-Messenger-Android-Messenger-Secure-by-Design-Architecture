@@ -5,7 +5,7 @@ import android.util.Log
 import com.aura.crypto.HybridSigner
 import com.aura.crypto.toHex
 import com.aura.identity.IdentityProvider
-import com.aura.server.AuroraRendezvousServer
+import com.aura.server.RendezvousProtocol
 import com.aura.settings.AuroraSettings
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -116,7 +116,7 @@ class DerpTransport @Inject constructor(
                         val nonce = msg.optString("nonce")
                         val sig = runCatching {
                             signer.signEd25519Only(
-                                AuroraRendezvousServer.relayMessage(myNodeIdHex, nonce),
+                                RendezvousProtocol.relayMessage(myNodeIdHex, nonce),
                                 identity.privatePart.signingPrivateKey
                             ).getOrThrow()
                         }.getOrNull()

@@ -8,7 +8,7 @@ import com.aura.crypto.HybridSigner
 import com.aura.crypto.NodeIdentity
 import com.aura.crypto.NodeIdentityGenerator
 import com.aura.crypto.toHex
-import com.aura.server.AuroraRendezvousServer
+import com.aura.server.RendezvousProtocol
 import com.aura.settings.AuroraSettings
 import com.aura.settings.PeerIpExposurePolicy
 import com.aura.testutil.FakeIdentityProvider
@@ -97,7 +97,7 @@ class DerpTransportTest {
                             identity.publicPart.signingPublicKey.ed25519PublicKey, Base64.NO_WRAP) &&
                         runBlocking {
                             signer.verifyEd25519Only(
-                                AuroraRendezvousServer.relayMessage(myId, nonce),
+                                RendezvousProtocol.relayMessage(myId, nonce),
                                 Base64.decode(msg.getString("sig"), Base64.NO_WRAP),
                                 identity.publicPart.signingPublicKey.ed25519PublicKey
                             ).getOrThrow()

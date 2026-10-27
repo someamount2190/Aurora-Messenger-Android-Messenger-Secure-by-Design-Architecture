@@ -119,6 +119,26 @@ jobs:
       - name: Run app unit tests (Robolectric)
         run: ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace
 
+      # Build the release APK and prove no developer-only code ships in it (user rule:
+      # no dev code in release). The in-app rendezvous server ("Server Mode"), its data
+      # structures, NanoHTTPD and the developer-tools UI all live in src/debug; this
+      # fails the build if any of them reach the release dex.
+      - name: Assemble release APK
+        run: ./gradlew :app:assembleRelease --no-daemon --stacktrace
+
+      - name: Dev-code guard (no in-app server / developer tools in release)
+        run: |
+          APK=$(find app/build/outputs/apk/release -name '*.apk' | head -1)
+          echo "Scanning $APK for developer-only code"
+          mkdir -p dexscan && (cd dexscan && unzip -o -q "../$APK" 'classes*.dex')
+          FORBIDDEN='AuroraRendezvousServer|DebugRendezvousServerController|DeveloperToolsViewModel|fi/iki/elonen|fi\.iki\.elonen|Hide developer options'
+          if grep -aEl "$FORBIDDEN" dexscan/classes*.dex; then
+            echo "::error::release APK contains developer-only code (in-app rendezvous server / dev tools)"
+            grep -aoE "$FORBIDDEN" dexscan/classes*.dex | sort -u
+            exit 1
+          fi
+          echo "OK: no developer-only code in release dex"
+
       # Known-vulnerability scan of the dependencies that actually ship: resolve the release
       # and crypto runtime graphs, then scan them. Binary pinned by SHA-256.
       - name: OSV-Scanner (dependencies)

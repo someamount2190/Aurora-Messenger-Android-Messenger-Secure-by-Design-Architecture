@@ -122,12 +122,14 @@ fun SettingsScreen(
                 onClear = { showClearDialog = true }
             )
 
-            // Developer options (hidden until revealed by the footer tap-7×).
-            if (developerMode) {
-                DeveloperSection(viewModel)
+            // Developer options live in the debug source set only; release ships a no-op
+            // stub and the BuildConfig.DEBUG gate keeps the reveal gesture out of release
+            // too (user rule: no dev code in release).
+            if (com.aura.BuildConfig.DEBUG && developerMode) {
+                DeveloperSection()
             }
 
-            // ── Footer (tap 7× to reveal developer options) ─────────────────
+            // ── Footer (tap 7× to reveal developer options — debug builds only) ──
             Spacer(Modifier.height(8.dp))
             androidx.compose.material3.HorizontalDivider()
             Text(
@@ -138,9 +140,9 @@ fun SettingsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable {
-                        if (!developerMode) {
+                        if (com.aura.BuildConfig.DEBUG && !developerMode) {
                             versionTaps++
-                            if (versionTaps >= 7) viewModel.setDeveloperMode(true)
+                            if (versionTaps >= 7) viewModel.settings.setDeveloperMode(true)
                         }
                     }
                     .padding(vertical = 12.dp)

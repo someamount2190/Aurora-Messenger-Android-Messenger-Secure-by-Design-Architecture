@@ -6,8 +6,7 @@ import com.aura.crypto.HybridSigner
 import com.aura.crypto.NodeIdentity
 import com.aura.crypto.toHex
 import com.aura.di.IoDispatcher
-import com.aura.server.AuroraRendezvousServer
-import com.aura.server.RendezvousServerController
+import com.aura.server.RendezvousProtocol
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -85,7 +84,7 @@ class RendezvousClient @Inject constructor(
     private suspend fun Request.Builder.signedDrainAuth(identity: NodeIdentity): Request.Builder {
         val ts = System.currentTimeMillis()
         val sig = signer.signEd25519Only(
-            AuroraRendezvousServer.drainMessage(identity.nodeId.toHex(), ts),
+            RendezvousProtocol.drainMessage(identity.nodeId.toHex(), ts),
             identity.privatePart.signingPrivateKey
         ).getOrThrow()
         return addHeader("X-Drain-Ts", ts.toString())
@@ -106,7 +105,7 @@ class RendezvousClient @Inject constructor(
     ): Result<String> = withContext(ioDispatcher) {
         runCatching {
             val nodeIdHex = identity.nodeId.toHex()
-            var ip = RendezvousServerController.localIpAddress()
+            var ip = LocalNetwork.localIpAddress()
                 ?: error("could not determine local IP")
             var port = listenPort
             if (!advertisedOverride.isNullOrBlank()) {
@@ -119,7 +118,7 @@ class RendezvousClient @Inject constructor(
             }
             val timestamp = System.currentTimeMillis()
 
-            val message = AuroraRendezvousServer.checkinMessage(nodeIdHex, ip, port, timestamp)
+            val message = RendezvousProtocol.checkinMessage(nodeIdHex, ip, port, timestamp)
             // Post-quantum: sign the check-in with the full Dilithium-3 + Ed25519
             // hybrid. Peers verify this against the Dilithium key learned off-QR at
             // pairing (verifyCandidates), so a quantum forgery can't redirect them.
@@ -298,7 +297,7 @@ class RendezvousClient @Inject constructor(
         dilithiumPub: ByteArray?,
         candidates: List<FindCandidate>
     ): FindCandidate? = candidates.firstOrNull { c ->
-        val message = AuroraRendezvousServer.checkinMessage(nodeIdHex, c.ip, c.port, c.timestampMs)
+        val message = RendezvousProtocol.checkinMessage(nodeIdHex, c.ip, c.port, c.timestampMs)
         val sig = Base64.decode(c.signatureB64, Base64.NO_WRAP)
         if (dilithiumPub != null)
             signer.verifyHybridSync(message, sig, com.aura.crypto.HybridVerifyKey(dilithiumPub, ed25519Pub))

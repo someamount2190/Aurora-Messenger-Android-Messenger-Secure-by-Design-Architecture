@@ -39,6 +39,13 @@ contacts are unaffected), and the app needs the matching rendezvous server.
 - Bouncy Castle 1.84 → 1.85 (CVE-2026-8763, CVE-2026-13506; neither was reachable from Aurora).
 
 ### Security
+- **The developer tools are no longer built into release.** "Server Mode" (the in-app
+  rendezvous server, which opened a listening HTTP port on the device), the advertised-address
+  and check-in test tools, and the whole developer settings section now live in a debug-only
+  source set, and the NanoHTTPD server library is a debug-only dependency. Release builds link
+  an inert no-op instead, so none of that code — nor its attack surface — ships in a release
+  APK. A CI step disassembles the release build and fails if any of it reappears. The protocol
+  helpers the normal client needs to reach a rendezvous server stay in every build.
 - Standalone `/find` now returns HTTP 200 and ten candidates for unknown nodes as well
   as registered nodes, reducing unauthenticated presence probing. Holders of the target
   verification keys can still recognize a valid record.

@@ -160,8 +160,10 @@ dependencies {
     implementation(libs.zxing.core)
     implementation(libs.zxing.android.embedded)
 
-    // Phase 0: in-app rendezvous server + HTTP client
-    implementation(libs.nanohttpd)
+    // Phase 0: in-app rendezvous server (NanoHTTPD) is a developer-only tool, so it is
+    // compiled into debug builds only — never shipped in a release APK. The HTTP client
+    // (okhttp) is production (the real rendezvous client talks to the live server).
+    debugImplementation(libs.nanohttpd)
     implementation(libs.okhttp)
 
     // Phase 7: WebRTC peer-to-peer video/audio

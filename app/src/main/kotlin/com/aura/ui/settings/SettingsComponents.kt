@@ -40,7 +40,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.aura.R
-import com.aura.server.RendezvousServerController
 import com.aura.settings.AppLanguage
 import com.aura.settings.AppLocale
 import com.aura.settings.DisappearingTimer
@@ -307,117 +306,6 @@ internal fun DataSection(
     }
 }
 
-/**
- * Network/rendezvous developer tools — not part of the normal user experience.
- * Revealed by tapping the version footer seven times; hidden again from here.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-internal fun DeveloperSection(viewModel: SettingsViewModel) {
-    val serverMode by viewModel.settings.serverMode.collectAsState()
-    val serverAddress by viewModel.settings.serverAddress.collectAsState()
-    val advertisedAddress by viewModel.settings.advertisedAddress.collectAsState()
-    val serverStatus by viewModel.serverController.status.collectAsState()
-    val testResult by viewModel.testResult.collectAsState()
-    val meshPeerCount by viewModel.meshPeerCount.collectAsState()
-
-    var addressDraft by remember(serverAddress) { mutableStateOf(serverAddress) }
-    var advertisedDraft by remember(advertisedAddress) { mutableStateOf(advertisedAddress) }
-
-    SectionTitle("Developer options")
-    Card {
-        Column(Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text("Server Mode", style = MaterialTheme.typography.titleSmall)
-                    Text(
-                        "Run the rendezvous server on this device (port 8080)",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(checked = serverMode, onCheckedChange = viewModel::setServerMode)
-            }
-
-            when (val s = serverStatus) {
-                is RendezvousServerController.Status.Running -> {
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "Running at ${s.localIp}:${s.port}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-                is RendezvousServerController.Status.Error -> {
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "Error: ${s.message}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-                else -> Unit
-            }
-
-            Spacer(Modifier.height(16.dp))
-            OutlinedTextField(
-                value = addressDraft,
-                onValueChange = { addressDraft = it },
-                label = { Text("Server address (client mode)") },
-                supportingText = { Text("10.0.2.2 reaches the host machine from an emulator") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-            if (addressDraft != serverAddress) {
-                TextButton(onClick = { viewModel.settings.setServerAddress(addressDraft) }) {
-                    Text("Save address")
-                }
-            }
-
-            Spacer(Modifier.height(12.dp))
-            OutlinedTextField(
-                value = advertisedDraft,
-                onValueChange = { advertisedDraft = it },
-                label = { Text("Advertised address (ip:port, optional)") },
-                supportingText = { Text("Override what peers are told to connect to (NAT / emulator testing). Mesh peers learned: $meshPeerCount") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-            if (advertisedDraft != advertisedAddress) {
-                TextButton(onClick = { viewModel.settings.setAdvertisedAddress(advertisedDraft) }) {
-                    Text("Save advertised address")
-                }
-            }
-
-            Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = viewModel::testCheckIn, modifier = Modifier.weight(1f)) {
-                    Text("Check in")
-                }
-                OutlinedButton(onClick = viewModel::testFindSelf, modifier = Modifier.weight(1f)) {
-                    Text("Find myself")
-                }
-            }
-            testResult?.let {
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    it,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Spacer(Modifier.height(8.dp))
-            TextButton(onClick = { viewModel.setDeveloperMode(false) }) {
-                Text("Hide developer options")
-            }
-        }
-    }
-}
-
 @Composable
 internal fun PinDialog(
     title: String,
@@ -488,7 +376,7 @@ private fun OptionRow(label: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun SectionTitle(text: String) {
+internal fun SectionTitle(text: String) {
     Text(
         text,
         style = MaterialTheme.typography.labelLarge,

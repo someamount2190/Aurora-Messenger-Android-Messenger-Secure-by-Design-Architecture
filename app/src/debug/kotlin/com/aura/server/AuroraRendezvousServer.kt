@@ -36,7 +36,7 @@ import android.util.Base64
  *   - The server never sees message content — only nodeId→IP mappings.
  */
 class AuroraRendezvousServer(
-    port: Int = DEFAULT_PORT,
+    port: Int = RendezvousProtocol.DEFAULT_PORT,
     private val signer: HybridSigner = HybridSigner()
 ) : NanoHTTPD(port) {
 
@@ -144,7 +144,7 @@ class AuroraRendezvousServer(
         if (registry.checkinRateLimited(nodeIdHex, now, CHECKIN_RATE_LIMIT_MS))
             return jsonError(Response.Status.TOO_MANY_REQUESTS, "rate limited")
 
-        val message = checkinMessage(nodeIdHex, ip, port, timestamp)
+        val message = RendezvousProtocol.checkinMessage(nodeIdHex, ip, port, timestamp)
         val pub = Base64.decode(pubB64, Base64.NO_WRAP)
         val sig = Base64.decode(sigB64, Base64.NO_WRAP)
         // Post-quantum hybrid signature when a Dilithium key is supplied; the older
@@ -170,7 +170,7 @@ class AuroraRendezvousServer(
 
         return jsonResponse(
             Response.Status.OK,
-            JSONObject().put("status", "registered").put("ttlSeconds", TTL_MS / 1000)
+            JSONObject().put("status", "registered").put("ttlSeconds", RendezvousProtocol.TTL_MS / 1000)
         )
     }
 
@@ -247,7 +247,7 @@ class AuroraRendezvousServer(
         val sigB64 = headers["x-drain-sig"] ?: return false
         return try {
             signer.verifyEd25519OnlySync(
-                drainMessage(nodeIdHex, ts),
+                RendezvousProtocol.drainMessage(nodeIdHex, ts),
                 Base64.decode(sigB64, Base64.NO_WRAP),
                 Base64.decode(pubB64, Base64.NO_WRAP)
             )
@@ -293,7 +293,7 @@ class AuroraRendezvousServer(
     // ── Helpers ───────────────────────────────────────────────────────────
 
     private fun purgeExpired() {
-        val cutoff = System.currentTimeMillis() - TTL_MS
+        val cutoff = System.currentTimeMillis() - RendezvousProtocol.TTL_MS
         registry.purge(cutoff)
         prekeyDir.purge(cutoff)
         signalQueues.purge(cutoff)
@@ -347,10 +347,8 @@ class AuroraRendezvousServer(
         jsonResponse(status, JSONObject().put("error", message))
 
     companion object {
-        const val DEFAULT_PORT = 8080
         /** AGPL-3.0 §13 source pointer (update to your fork's repo if you modify Aurora). */
         const val SOURCE_URL = "https://github.com/someamount2190/AuroraMessenger"
-        const val TTL_MS = 15 * 60 * 1000L          // 15-minute registration TTL (Privacy Policy §3.2)
         const val CHECKIN_FRESHNESS_MS = 5 * 60 * 1000L
         const val CHECKIN_RATE_LIMIT_MS = 60 * 1000L
         const val FIND_RATE_LIMIT_PER_MIN = 10
@@ -364,17 +362,5 @@ class AuroraRendezvousServer(
         private const val HYBRID_SIG_BYTES = 4 + 3309 + 64
         private const val MAX_BODY_BYTES = 64 * 1024
         private const val MAX_SIGNAL_BYTES = 32 * 1024
-
-        /** Canonical byte string both client and server sign/verify for check-ins. */
-        fun checkinMessage(nodeIdHex: String, ip: String, port: Int, timestampMs: Long): ByteArray =
-            "aura-checkin-v1|$nodeIdHex|$ip|$port|$timestampMs".toByteArray(Charsets.UTF_8)
-
-        /** Canonical byte string signed to authenticate a signal-queue drain. */
-        fun drainMessage(nodeIdHex: String, timestampMs: Long): ByteArray =
-            "aura-drain-v1|$nodeIdHex|$timestampMs".toByteArray(Charsets.UTF_8)
-
-        /** Canonical byte string signed to answer a blind-relay connection challenge. */
-        fun relayMessage(nodeIdHex: String, nonce: String): ByteArray =
-            "aura-relay-v1|$nodeIdHex|$nonce".toByteArray(Charsets.UTF_8)
     }
 }

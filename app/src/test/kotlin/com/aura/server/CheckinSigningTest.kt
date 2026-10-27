@@ -14,14 +14,14 @@ class CheckinSigningTest {
     @Test fun checkinMessage_isCanonicalFormat() {
         assertTrue(
             "aura-checkin-v1|abcd|1.2.3.4|8080|123".toByteArray(Charsets.UTF_8)
-                .contentEquals(AuroraRendezvousServer.checkinMessage("abcd", "1.2.3.4", 8080, 123L))
+                .contentEquals(RendezvousProtocol.checkinMessage("abcd", "1.2.3.4", 8080, 123L))
         )
     }
 
     @Test fun drainMessage_isCanonicalFormat() {
         assertTrue(
             "aura-drain-v1|abcd|456".toByteArray(Charsets.UTF_8)
-                .contentEquals(AuroraRendezvousServer.drainMessage("abcd", 456L))
+                .contentEquals(RendezvousProtocol.drainMessage("abcd", 456L))
         )
     }
 
@@ -29,12 +29,12 @@ class CheckinSigningTest {
         // Must match relayMessage() in rendezvous-server/index.js.
         assertTrue(
             "aura-relay-v1|abcd|n0nce".toByteArray(Charsets.UTF_8)
-                .contentEquals(AuroraRendezvousServer.relayMessage("abcd", "n0nce"))
+                .contentEquals(RendezvousProtocol.relayMessage("abcd", "n0nce"))
         )
     }
 
     @Test fun constants_matchDeployedServer() {
-        assertEquals(8080, AuroraRendezvousServer.DEFAULT_PORT)
-        assertEquals(15 * 60 * 1000L, AuroraRendezvousServer.TTL_MS)
+        assertEquals(8080, RendezvousProtocol.DEFAULT_PORT)
+        assertEquals(15 * 60 * 1000L, RendezvousProtocol.TTL_MS)
     }
 }

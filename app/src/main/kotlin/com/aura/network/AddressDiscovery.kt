@@ -1,7 +1,6 @@
 package com.aura.network
 
 import com.aura.di.IoDispatcher
-import com.aura.server.RendezvousServerController
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -51,7 +50,7 @@ class AddressDiscovery @Inject constructor(
 
     /** Build the advertised candidate list for hosting on [port]. */
     suspend fun discover(port: Int): HostAddresses = withContext(ioDispatcher) {
-        val lan = RendezvousServerController.localIpAddress()
+        val lan = LocalNetwork.localIpAddress()
         val pub = publicIp()
 
         // Best-effort automatic port mapping so the public address is actually reachable.
@@ -122,7 +121,7 @@ class AddressDiscovery @Inject constructor(
 
     /** Derive the likely default-gateway address from our LAN IPv4 (x.y.z.1). */
     private fun defaultGateway(): InetAddress? {
-        val lan = RendezvousServerController.localIpAddress() ?: return null
+        val lan = LocalNetwork.localIpAddress() ?: return null
         val parts = lan.split(".")
         if (parts.size != 4) return null
         return runCatching { InetAddress.getByName("${parts[0]}.${parts[1]}.${parts[2]}.1") }.getOrNull()
