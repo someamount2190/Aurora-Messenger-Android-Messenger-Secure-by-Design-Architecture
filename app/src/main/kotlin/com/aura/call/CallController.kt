@@ -1,11 +1,13 @@
 package com.aura.call
 
 import android.content.Context
+import android.util.Base64
 import com.aura.crypto.toHex
 import com.aura.db.ContactDao
 import com.aura.db.MessageDao
 import com.aura.db.MessageEntity
 import com.aura.identity.IdentityStore
+import java.security.SecureRandom
 import java.util.UUID
 import com.aura.network.SyncEngine
 import com.aura.notify.Notifier
@@ -95,6 +97,11 @@ class CallController @Inject constructor(
     private var remoteNodeIdHex: String? = null
     private var pendingOfferSdp: String? = null   // held while INCOMING, applied on accept
     private var pendingOfferIsVideo: Boolean = true
+    // Per-call capability token. Minted when an incoming call is surfaced and carried ONLY in
+    // the notification's immutable PendingIntent. acceptCallFromNotification() requires a matching
+    // token, so a forged ACTION_ANSWER_CALL intent from another app (which can't know the token)
+    // can't open the mic/camera to the caller. Regenerated per call; cleared when the call ends.
+    private var answerToken: String? = null
     // ICE-recovery bookkeeping: a watchdog that fails the call if recovery doesn't land,
     // and a one-shot guard so a restart is attempted at most once per call.
     private var reconnectJob: kotlinx.coroutines.Job? = null
@@ -181,10 +188,32 @@ class CallController @Inject constructor(
 
     // ── Inbound call ───────────────────────────────────────────────────────
 
+    /**
+     * Accept from the notification's Answer action (the exported-activity intent path).
+     * [token] must match the per-call token minted in [newAnswerToken] and carried only in the
+     * notification's immutable Answer PendingIntent. A null/mismatched token — e.g. a forged
+     * ACTION_ANSWER_CALL intent from another app — is ignored, so no third party can silently
+     * open the mic/camera to the caller. The in-app Accept button uses [acceptCall] directly,
+     * which no other app can invoke.
+     */
+    fun acceptCallFromNotification(token: String?) {
+        if (!CallAnswerToken.matches(answerToken, token)) {
+            android.util.Log.w(TAG, "acceptCall: rejected (no/invalid call token)")
+            return
+        }
+        acceptCall()
+    }
+
+    /**
+     * Accept the ringing call. Trusted in-process entry: the in-app Accept button on the call
+     * screen calls this directly. The notification/intent path must go through
+     * [acceptCallFromNotification], which checks the per-call token first.
+     */
     fun acceptCall() {
         val s = scope ?: return
         val peer = remoteNodeIdHex ?: return
         val offerSdp = pendingOfferSdp ?: return
+        answerToken = null   // consume: this call is being answered
         notifier.cancelCall()
         ringer.stop()
         ringTimeoutJob?.cancel()
@@ -204,6 +233,10 @@ class CallController @Inject constructor(
             armConnectTimeout()   // we've answered — fail honestly if media never connects
         }
     }
+
+    /** A fresh 128-bit URL-safe token for one incoming call. */
+    private fun newAnswerToken(): String =
+        Base64.encodeToString(ByteArray(16).also { SecureRandom().nextBytes(it) }, Base64.NO_WRAP or Base64.URL_SAFE)
 
     fun declineCall() {
         val peer = remoteNodeIdHex
@@ -324,9 +357,11 @@ class CallController @Inject constructor(
                 _minimized.value = false
                 val name = contactDao.byNodeId(from)?.displayName
                 _call.value = CallInfo(CallState.INCOMING, from, name, isCaller = false, isVideo = pendingOfferIsVideo)
+                answerToken = newAnswerToken()
                 // Surface the call over whatever is in the foreground (other app, launcher,
-                // lock screen). No-op when Aurora is already on screen.
-                notifier.notifyIncomingCall()
+                // lock screen). No-op when Aurora is already on screen. The token travels only
+                // in the notification's immutable Answer PendingIntent.
+                notifier.notifyIncomingCall(answerToken)
                 // Ring regardless of foreground state; auto-give-up as missed if unanswered.
                 ringer.start()
                 ringTimeoutJob?.cancel()
@@ -446,6 +481,7 @@ class CallController @Inject constructor(
         WakeService.setCallActive(context, active = false, video = false)
         remoteNodeIdHex = null
         pendingOfferSdp = null
+        answerToken = null
         pendingOfferIsVideo = true
         callAcceptedByMe = false
         _minimized.value = false

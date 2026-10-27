@@ -42,6 +42,11 @@ contacts are unaffected), and the app needs the matching rendezvous server.
   cache files are swept at launch, and every wipe clears the cache.
 - **Shared links are checked.** Only `content://` links served by another app are read, so
   another app can no longer hand Aurora a link to Aurora's own private files. Reads are size-capped.
+- **Only the real call notification can answer a call.** Answering an incoming call now requires
+  a one-time token that is carried only inside the notification's own (tamper-proof) Answer
+  action. Another app on the phone can no longer silently answer your call — which would have
+  opened your microphone (and camera, on a video call) to the caller — by sending a crafted
+  message to Aurora.
 
 ### Fixed
 - The server no longer crashes when a relayed message is sent to an offline contact.

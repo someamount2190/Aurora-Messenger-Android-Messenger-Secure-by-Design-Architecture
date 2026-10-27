@@ -86,7 +86,9 @@ class MainActivity : ComponentActivity() {
     /** The notification's Answer button launches us with this action — accept the call. */
     private fun handleCallAnswer(intent: Intent?) {
         if (intent?.action == Notifier.ACTION_ANSWER_CALL) {
-            callManager.acceptCall()
+            // acceptCall validates the token; a forged intent without the current call's token
+            // (i.e. from any other app) is rejected, so it can't open the mic/camera.
+            callManager.acceptCallFromNotification(intent.getStringExtra(Notifier.EXTRA_CALL_TOKEN))
         }
     }
 

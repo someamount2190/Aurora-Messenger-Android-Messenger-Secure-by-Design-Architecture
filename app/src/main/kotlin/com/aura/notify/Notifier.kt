@@ -97,10 +97,10 @@ class Notifier @Inject constructor(
      * broadcast without opening the app. Deliberately generic — no contact name, so
      * nothing identifying shows on the lock screen or in the tray.
      */
-    fun notifyIncomingCall() {
+    fun notifyIncomingCall(callToken: String?) {
         if (foreground.isForeground) return
         if (!canPost()) return
-        val answer = answerIntent()
+        val answer = answerIntent(callToken)
         val decline = declineIntent()
         val builder = NotificationCompat.Builder(context, CH_CALLS)
             .setSmallIcon(R.drawable.ic_notification)
@@ -123,10 +123,17 @@ class Notifier @Inject constructor(
         safeNotify(ID_CALL, builder.build())
     }
 
-    /** Activity intent that opens the call UI and answers (carries ACTION_ANSWER_CALL). */
-    private fun answerIntent(): PendingIntent {
+    /**
+     * Activity intent that opens the call UI and answers (carries ACTION_ANSWER_CALL).
+     * The per-call token rides as an extra; the PendingIntent is IMMUTABLE so a sender can't
+     * alter it, and only CallController's current token will be accepted — a third-party app
+     * firing a bare ACTION_ANSWER_CALL has no valid token and is ignored. FLAG_UPDATE_CURRENT
+     * refreshes the token extra for each new call (extras aren't part of PendingIntent identity).
+     */
+    private fun answerIntent(callToken: String?): PendingIntent {
         val intent = Intent(context, MainActivity::class.java).apply {
             action = ACTION_ANSWER_CALL
+            putExtra(EXTRA_CALL_TOKEN, callToken)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                 Intent.FLAG_ACTIVITY_CLEAR_TOP or
                 Intent.FLAG_ACTIVITY_SINGLE_TOP
@@ -262,6 +269,8 @@ class Notifier @Inject constructor(
         const val ACTION_ANSWER_CALL = "com.aura.action.ANSWER_CALL"
         /** Tapping the ongoing-call notification restores (expands) the minimized call. */
         const val ACTION_OPEN_CALL = "com.aura.action.OPEN_CALL"
+        /** Per-call capability token carried in the Answer PendingIntent; checked by CallController. */
+        const val EXTRA_CALL_TOKEN = "com.aura.extra.CALL_TOKEN"
         private const val CH_MESSAGES = "messages"
         // "calls_v2": the original "calls" channel shipped with a default sound that
         // can't be changed after creation; this one is silent (Ringer owns the audio).
