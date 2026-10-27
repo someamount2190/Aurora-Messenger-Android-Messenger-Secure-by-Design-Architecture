@@ -75,6 +75,10 @@ android {
     sourceSets["test"].resources.srcDir("../crypto/src/test/resources")
 
     packaging {
+        // 16 KB page support: extract native libs on install so the loader maps
+        // each .so per its own 16 KB-aligned LOAD segments (SQLCipher 4.9.0 is 16 KB-ready),
+        // without needing AGP 8.5.1's in-APK 16 KB zip-alignment.
+        jniLibs { useLegacyPackaging = true }
         resources {
             excludes += setOf(
                 "META-INF/LICENSE*",

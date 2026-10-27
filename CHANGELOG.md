@@ -59,6 +59,11 @@ contacts are unaffected), and the app needs the matching rendezvous server.
   message to Aurora.
 
 ### Fixed
+- **Runs on 16 KB-page Android 15 devices.** The bundled SQLCipher native library was aligned
+  for 4 KB memory pages, so on newer Android 15 phones that use 16 KB pages it failed to load
+  and the encrypted database couldn't open. SQLCipher is updated to 4.9.0 (16 KB-ready) and the
+  native libraries are extracted on install so the loader maps them correctly. Upgrading keeps
+  your identity and message history (verified: a 4.5.6 database opens unchanged under 4.9.0).
 - The server no longer crashes when a relayed message is sent to an offline contact.
 - Call setup no longer produces a malformed session description when applying bandwidth caps.
 
