@@ -393,6 +393,25 @@ test('drained signals come back as the original payload strings', async () => {
   assert.deepEqual(res.json, { payloads: ['{"type":"x"}'] });
 });
 
+test('/find is not a presence oracle: unknown and registered nodes look identical', async () => {
+  // Registered node: 200 with CANDIDATE_COUNT candidates (1 real + dummies).
+  const node = await checkIn(makeNode());
+  const known = await request('GET', `/find/${node.nodeId}`);
+  assert.equal(known.status, 200, JSON.stringify(known.json));
+  assert.equal(known.json.candidates.length, 10);
+
+  // Unknown (well-formed) node: ALSO 200 with the same count of candidates (all dummies),
+  // so the server operator / anyone without the node's signing key can't tell it isn't online.
+  const unknownId = crypto.randomBytes(32).toString('hex');
+  const unknown = await request('GET', `/find/${unknownId}`);
+  assert.equal(unknown.status, 200, JSON.stringify(unknown.json));
+  assert.equal(unknown.json.candidates.length, 10);
+
+  // Malformed nodeId is still rejected (format check, not a presence signal).
+  const bad = await request('GET', '/find/not-a-valid-node-id');
+  assert.equal(bad.status, 400);
+});
+
 test('turn credentials are disabled when no shared secret is configured', async () => {
   const node = await checkIn(makeNode());
   const res = await request('GET', `/turn-credentials/${node.nodeId}`, { headers: drainHeaders(node) });

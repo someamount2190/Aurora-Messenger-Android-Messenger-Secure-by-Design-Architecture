@@ -355,10 +355,17 @@ const server = http.createServer((req, res) => {
   if (req.method === 'GET' && url.startsWith('/find/')) {
     if (!allowFind(remoteIp)) return send(res, 429, { error: 'rate limited' });
     const nodeId = url.slice('/find/'.length);
+    if (!/^[0-9a-f]{64}$/.test(nodeId)) return send(res, 400, { error: 'bad nodeId' });
     const target = nodes.get(nodeId);
-    if (!target) return send(res, 404, { error: 'node not registered' });
 
-    const candidates = [candidate(target.ip, target.port, target.timestamp, target.sigB64)];
+    // Uniform response whether or not the node is registered: a registered node is one real
+    // candidate padded to CANDIDATE_COUNT with dummies; an unknown node is CANDIDATE_COUNT
+    // dummies. Both are 200 with the same shape, so the response is not an online-presence
+    // oracle to the server operator or anyone without the node's pairing-learned signing key
+    // (a paired contact can still tell real from dummy by verifying the hybrid signature — that
+    // is inherent, since the server can't forge a node's signature to fake presence).
+    const candidates = [];
+    if (target) candidates.push(candidate(target.ip, target.port, target.timestamp, target.sigB64));
     // Dummies only — never disclose other registered nodes' real IPs as /find padding.
     while (candidates.length < CANDIDATE_COUNT) {
       candidates.push(candidate(
