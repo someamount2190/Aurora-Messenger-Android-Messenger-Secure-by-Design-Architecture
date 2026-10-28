@@ -19,9 +19,10 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 @Database(
     entities = [
         ContactEntity::class, MessageEntity::class, MeshPeerEntity::class,
-        PrekeyEntity::class, KemRatchetEntity::class
+        PrekeyEntity::class, KemRatchetEntity::class,
+        GroupEntity::class, GroupMemberEntity::class, GroupMembershipEventEntity::class
     ],
-    version = 10,
+    version = 11,
     // Export the schema so version 6 became the migration baseline: from here on,
     // changes ship as @AutoMigration / Migration objects that PRESERVE user data
     // instead of wiping it. (Schema JSONs land in app/schemas — commit them.)
@@ -41,6 +42,7 @@ abstract class AuroraDatabase : RoomDatabase() {
     abstract fun meshPeerDao(): MeshPeerDao
     abstract fun ratchetDao(): RatchetDao
     abstract fun prekeyDao(): PrekeyDao
+    abstract fun groupDao(): GroupDao
 
     companion object {
         /** Build the SQLCipher-encrypted database. [dbKey] must be 32 bytes. */
@@ -53,8 +55,39 @@ abstract class AuroraDatabase : RoomDatabase() {
                 // migrate from) are allowed to wipe. From v6 onward every bump MUST ship a
                 // migration, so a real user's contacts/messages survive app updates.
                 .fallbackToDestructiveMigrationFrom(1, 2, 3, 4, 5)
-                .addMigrations(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
+                .addMigrations(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
                 .build()
+        }
+
+        /**
+         * v10→v11 (group messaging, additive): add the `groups`, `group_members` and
+         * `group_membership_events` tables. Purely additive — contacts, messages, ratchets and
+         * prekeys are untouched, so every existing 1:1 user carries across unchanged.
+         */
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `groups` (" +
+                        "`groupId` TEXT NOT NULL, `name` TEXT NOT NULL, `creatorId` TEXT NOT NULL, " +
+                        "`creatorVerifyKeyB64` TEXT NOT NULL, `membershipVersion` INTEGER NOT NULL, " +
+                        "`stateHash` TEXT NOT NULL, `createdAtMs` INTEGER NOT NULL, `role` TEXT NOT NULL, " +
+                        "`state` TEXT NOT NULL, PRIMARY KEY(`groupId`))"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `group_members` (" +
+                        "`groupId` TEXT NOT NULL, `memberId` TEXT NOT NULL, `verifyKeyB64` TEXT NOT NULL, " +
+                        "`kemPubB64` TEXT NOT NULL, `addedAtVersion` INTEGER NOT NULL, `state` TEXT NOT NULL, " +
+                        "PRIMARY KEY(`groupId`, `memberId`))"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `group_membership_events` (" +
+                        "`eventId` TEXT NOT NULL, `groupId` TEXT NOT NULL, `version` INTEGER NOT NULL, " +
+                        "`prevStateHash` TEXT NOT NULL, `action` TEXT NOT NULL, `affectedMemberId` TEXT NOT NULL, " +
+                        "`affectedVerifyKeyB64` TEXT NOT NULL, `affectedKemPubB64` TEXT NOT NULL, " +
+                        "`name` TEXT NOT NULL, `creatorId` TEXT NOT NULL, `timestampMs` INTEGER NOT NULL, " +
+                        "`signatureB64` TEXT NOT NULL, PRIMARY KEY(`eventId`))"
+                )
+            }
         }
 
         /**

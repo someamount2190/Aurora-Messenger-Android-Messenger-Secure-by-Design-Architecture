@@ -63,6 +63,9 @@ object AppModule {
     @Provides
     fun providePrekeyDao(db: AuroraDatabase): PrekeyDao = db.prekeyDao()
 
+    @Provides
+    fun provideGroupDao(db: AuroraDatabase): com.aura.db.GroupDao = db.groupDao()
+
     // ── aura-crypto wiring ──────────────────────────────────────────────────
     // The crypto library is storage- and DI-agnostic: it persists through the
     // KemSessionStore / PrekeyStore interfaces it defines, and the managers are plain
