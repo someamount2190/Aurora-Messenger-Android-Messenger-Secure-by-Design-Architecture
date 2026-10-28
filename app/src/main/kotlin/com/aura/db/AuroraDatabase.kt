@@ -20,9 +20,10 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
     entities = [
         ContactEntity::class, MessageEntity::class, MeshPeerEntity::class,
         PrekeyEntity::class, KemRatchetEntity::class,
-        GroupEntity::class, GroupMemberEntity::class, GroupMembershipEventEntity::class
+        GroupEntity::class, GroupMemberEntity::class, GroupMembershipEventEntity::class,
+        GroupMessageEntity::class, GroupDeliveryEntity::class
     ],
-    version = 11,
+    version = 12,
     // Export the schema so version 6 became the migration baseline: from here on,
     // changes ship as @AutoMigration / Migration objects that PRESERVE user data
     // instead of wiping it. (Schema JSONs land in app/schemas — commit them.)
@@ -43,6 +44,7 @@ abstract class AuroraDatabase : RoomDatabase() {
     abstract fun ratchetDao(): RatchetDao
     abstract fun prekeyDao(): PrekeyDao
     abstract fun groupDao(): GroupDao
+    abstract fun groupMessageDao(): GroupMessageDao
 
     companion object {
         /** Build the SQLCipher-encrypted database. [dbKey] must be 32 bytes. */
@@ -55,8 +57,32 @@ abstract class AuroraDatabase : RoomDatabase() {
                 // migrate from) are allowed to wipe. From v6 onward every bump MUST ship a
                 // migration, so a real user's contacts/messages survive app updates.
                 .fallbackToDestructiveMigrationFrom(1, 2, 3, 4, 5)
-                .addMigrations(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
+                .addMigrations(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
                 .build()
+        }
+
+        /**
+         * v11→v12 (group messaging delivery, additive): add `group_messages` (one logical message per
+         * row) and `group_deliveries` (per-recipient fan-out jobs). Additive — all prior data untouched.
+         */
+        val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `group_messages` (" +
+                        "`messageId` TEXT NOT NULL, `groupId` TEXT NOT NULL, `senderId` TEXT NOT NULL, " +
+                        "`fromMe` INTEGER NOT NULL, `body` TEXT NOT NULL, `type` TEXT NOT NULL, " +
+                        "`timestampMs` INTEGER NOT NULL, `senderSeq` INTEGER NOT NULL, `logicalClock` INTEGER NOT NULL, " +
+                        "`membershipVersion` INTEGER NOT NULL, `localState` TEXT NOT NULL, " +
+                        "`replyToId` TEXT, `expiresAtMs` INTEGER, PRIMARY KEY(`messageId`))"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `group_deliveries` (" +
+                        "`messageId` TEXT NOT NULL, `recipientId` TEXT NOT NULL, `groupId` TEXT NOT NULL, " +
+                        "`sealedB64` TEXT, `ratchetN` INTEGER, `state` TEXT NOT NULL, `retryCount` INTEGER NOT NULL, " +
+                        "`nextRetryMs` INTEGER NOT NULL, `lastAttemptMs` INTEGER NOT NULL, `ackState` TEXT NOT NULL, " +
+                        "PRIMARY KEY(`messageId`, `recipientId`))"
+                )
+            }
         }
 
         /**

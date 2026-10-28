@@ -66,6 +66,12 @@ object AppModule {
     @Provides
     fun provideGroupDao(db: AuroraDatabase): com.aura.db.GroupDao = db.groupDao()
 
+    @Provides
+    fun provideGroupMessageDao(db: AuroraDatabase): com.aura.db.GroupMessageDao = db.groupMessageDao()
+
+    @Provides @Singleton
+    fun provideGroupSealer(impl: com.aura.group.RatchetGroupSealer): com.aura.group.GroupSealer = impl
+
     // ── aura-crypto wiring ──────────────────────────────────────────────────
     // The crypto library is storage- and DI-agnostic: it persists through the
     // KemSessionStore / PrekeyStore interfaces it defines, and the managers are plain
