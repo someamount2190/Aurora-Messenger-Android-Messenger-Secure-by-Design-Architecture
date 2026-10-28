@@ -23,8 +23,17 @@ data class MemberRecord(
 object GroupProtocol {
     const val EVENT_PREFIX = "aura-grp-evt-v1"
     const val GROUP_ID_PREFIX = "aura-group-v1"
+    const val INVITE_RESP_PREFIX = "aura-grp-inviteresp-v1"
     private const val GENESIS_SENTINEL = "aura-grp-genesis-v1"
     const val MAX_MEMBERS = 10
+
+    /** Member states that are part of the AUTHENTICATED (creator-signed) membership state and so
+     *  feed the chained [stateHash]. Local-only pending states (INVITED) are excluded. */
+    val SIGNED_STATES = setOf("ACTIVE", "REMOVED")
+
+    /** Canonical bytes an invitee signs to prove an accept/decline is genuinely theirs (prompt §4). */
+    fun inviteResponseBytes(groupId: String, inviteeId: String, accept: Boolean): ByteArray =
+        "$INVITE_RESP_PREFIX|$groupId|$inviteeId|$accept".toByteArray(Charsets.UTF_8)
 
     /** groupId = SHA3-256("aura-group-v1|creator|" ‖ 32 random bytes). Collision-resistant + creator-bound. */
     fun deriveGroupId(creatorNodeIdHex: String, randomness: ByteArray): String =

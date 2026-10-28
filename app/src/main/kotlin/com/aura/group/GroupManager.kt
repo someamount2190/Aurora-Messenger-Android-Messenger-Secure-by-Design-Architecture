@@ -135,7 +135,113 @@ class GroupManager @Inject constructor(
         val ok = signer.verify(bytes, unb64(event.signatureB64), creatorKey).getOrNull() == true
         if (!ok) return@withContext ApplyResult.Rejected("invalid creator signature")
         applyVerified(group, event)
+        // If this ADD promoted me from a pending invitation, the group becomes active for me.
+        if (event.action == GroupAction.ADD.name) {
+            val me = identityManager.getOrCreate().nodeId.toHex()
+            val g2 = groupDao.group(event.groupId)
+            if (g2 != null && g2.state == "INVITED" && groupDao.activeMembers(event.groupId).any { it.memberId == me })
+                groupDao.upsertGroup(g2.copy(state = "ACTIVE"))
+        }
         ApplyResult.Applied(event.version)
+    }
+
+    // ── Invitations (Stage C) ───────────────────────────────────────────────
+
+    sealed interface InviteResult {
+        data class Added(val addEvent: GroupMembershipEventEntity) : InviteResult   // creator must distribute
+        data object Declined : InviteResult
+        data class Ignored(val reason: String) : InviteResult
+    }
+
+    /**
+     * Creator: record [inviteeId] as a local pending INVITED slot (pinning their keys) and return the
+     * sealed-channel invite payload to send them. Idempotent — re-inviting is safe. INVITED slots are
+     * local only; they are not part of the signed/chained membership state until the invitee accepts
+     * and the creator issues an ADD event.
+     */
+    suspend fun invite(
+        groupId: String, inviteeId: String, inviteeVerifyKeyB64: String, inviteeKemPubB64: String
+    ): String = withContext(io) {
+        val group = groupDao.group(groupId) ?: error("unknown group")
+        val me = identityManager.getOrCreate().nodeId.toHex()
+        require(group.role == "CREATOR" && group.creatorId == me) { "only the creator can invite" }
+        val signed = groupDao.members(groupId).filter { it.state in GroupProtocol.SIGNED_STATES }
+        require(signed.size < GroupProtocol.MAX_MEMBERS) { "group is full" }
+        groupDao.upsertMember(GroupMemberEntity(groupId, inviteeId, inviteeVerifyKeyB64, inviteeKemPubB64, 0, "INVITED"))
+        GroupInviteCodec.encodeInvite(
+            GroupInviteCodec.Invite(
+                groupId, group.name, group.creatorId, group.creatorVerifyKeyB64,
+                group.membershipVersion, group.stateHash,
+                signed.map { MemberRecord(it.memberId, it.verifyKeyB64, it.kemPubB64, it.state) }
+            )
+        )
+    }
+
+    /**
+     * Invitee: pin a group from an invite received over the sealed channel from [fromContactNodeId].
+     * The invite is trusted because it arrived sealed from an already-paired, SAS-verified contact and
+     * names that same contact as creator — so we reject an invite whose creatorId isn't the sender.
+     */
+    suspend fun receiveInvite(inviteJson: String, fromContactNodeId: String): Result<String> = withContext(io) {
+        runCatching {
+            val inv = GroupInviteCodec.decodeInvite(inviteJson)
+            require(inv.creatorId == fromContactNodeId) { "invite creator doesn't match the sender" }
+            require(inv.members.size <= GroupProtocol.MAX_MEMBERS) { "membership too large" }
+            groupDao.upsertGroup(
+                GroupEntity(inv.groupId, inv.name, inv.creatorId, inv.creatorVerifyKeyB64,
+                    inv.version, inv.stateHash, System.currentTimeMillis(), "MEMBER", "INVITED")
+            )
+            inv.members.forEach {
+                groupDao.upsertMember(GroupMemberEntity(inv.groupId, it.memberId, it.verifyKeyB64, it.kemPubB64, inv.version, it.state))
+            }
+            inv.groupId
+        }
+    }
+
+    /** Invitee: produce a signed acceptance to send back to the creator. Local state stays INVITED
+     *  until the creator's ADD event arrives and promotes us to ACTIVE. */
+    suspend fun acceptInvite(groupId: String): String = buildResponse(groupId, accept = true)
+
+    /** Invitee: produce a signed decline and drop the local group. */
+    suspend fun declineInvite(groupId: String): String = withContext(io) {
+        val resp = buildResponse(groupId, accept = false)
+        groupDao.deleteMembers(groupId); groupDao.deleteGroup(groupId)
+        resp
+    }
+
+    private suspend fun buildResponse(groupId: String, accept: Boolean): String = withContext(io) {
+        val id = identityManager.getOrCreate()
+        val me = id.nodeId.toHex()
+        val sig = signer.sign(GroupProtocol.inviteResponseBytes(groupId, me, accept), id.privatePart.signingPrivateKey).getOrThrow()
+        GroupInviteCodec.encodeResponse(
+            GroupInviteCodec.InviteResponse(
+                groupId, me, accept,
+                b64(id.publicPart.signingPublicKey.toBytes()), b64(id.publicPart.kemPublicKey.toBytes()), b64(sig)
+            )
+        )
+    }
+
+    /**
+     * Creator: handle an invitee's signed response. The acceptance is verified against the invitee key
+     * pinned at [invite] time (not the key in the message), so a relay can't forge an accept. On accept,
+     * fold the invitee into a creator-signed ADD event (returned for distribution). Idempotent.
+     */
+    suspend fun receiveInviteResponse(responseJson: String): InviteResult = withContext(io) {
+        val r = GroupInviteCodec.decodeResponse(responseJson)
+        val member = groupDao.members(r.groupId).firstOrNull { it.memberId == r.inviteeId }
+            ?: return@withContext InviteResult.Ignored("no such invitee")
+        if (member.state == "ACTIVE") return@withContext InviteResult.Ignored("already a member")
+        if (member.state != "INVITED") return@withContext InviteResult.Ignored("not pending (${member.state})")
+        val key = try { HybridVerifyKey.fromBytes(unb64(member.verifyKeyB64)) }
+            catch (e: Exception) { return@withContext InviteResult.Ignored("bad pinned invitee key") }
+        val ok = signer.verify(GroupProtocol.inviteResponseBytes(r.groupId, r.inviteeId, r.accept), unb64(r.signatureB64), key).getOrNull() == true
+        if (!ok) return@withContext InviteResult.Ignored("invalid invitee signature")
+        if (!r.accept) {
+            groupDao.upsertMember(member.copy(state = "LEFT"))
+            return@withContext InviteResult.Declined
+        }
+        val event = createSignedEvent(r.groupId, GroupAction.ADD, member.memberId, member.verifyKeyB64, member.kemPubB64)
+        InviteResult.Added(event)
     }
 
     /** Mutate membership per a verified event, recompute + persist the chained state. */
@@ -160,9 +266,12 @@ class GroupManager @Inject constructor(
             GroupAction.TERMINATE -> groupState = "TERMINATED"
         }
         members.forEach { groupDao.upsertMember(it) }
+        // Only creator-signed states (ACTIVE/REMOVED) are part of the chained hash; local pending
+        // INVITED slots on the creator are not, so every device computes the same stateHash.
         val stateHash = GroupProtocol.stateHash(
             group.groupId, event.version, name,
-            members.map { MemberRecord(it.memberId, it.verifyKeyB64, it.kemPubB64, it.state) }
+            members.filter { it.state in GroupProtocol.SIGNED_STATES }
+                .map { MemberRecord(it.memberId, it.verifyKeyB64, it.kemPubB64, it.state) }
         )
         groupDao.upsertGroup(
             group.copy(name = name, membershipVersion = event.version, stateHash = stateHash, state = groupState)
