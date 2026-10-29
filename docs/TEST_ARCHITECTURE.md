@@ -4,9 +4,10 @@
 > The crypto module is now entirely pure JVM; liboqs and the native crypto test tier
 > are retired. Current executed suites and CI checks are in [TEST_STATUS.md](TEST_STATUS.md).
 
-Status: **historical design blueprint** (automated suites now exist; see the status link above). This document specifies the full test
-architecture down to the class/method level. It is the blueprint for building the
-suite; nothing here is implemented yet.
+Status: **partly implemented.** T1 (pure-JVM) and the Robolectric storage/domain tests exist and
+run in CI. T4 with a real Hilt graph and the T5 Compose UI tests do **not**: `app/src/androidTest`
+is empty, so every `androidTest` reference below is a plan, not a description of the current
+tree. Executed suites and counts are in [TEST_STATUS.md](TEST_STATUS.md).
 
 Guiding principle: Aurora is a **post-quantum E2E crypto messenger**, so the suite is
 weighted toward the security-critical core (crypto, ratchet, pairing, wipe) and toward
@@ -33,9 +34,8 @@ Poly1305). So there is **no T2 "native" tier** any more — `HybridKem`, `Hybrid
 `NodeIdentityGenerator`, `PrekeyManager`, `KemDoubleRatchet` and the end-to-end pairing
 simulation all run as **ordinary T1 JVM tests on CI**, alongside `Hkdf`, `SymmetricCipher`,
 etc. The `@Tag("native")`/`assumeTrue(NativeCrypto.available)` guards are gone; `./gradlew -p
-crypto test` runs the entire crypto suite (incl. PQC KATs) with zero setup. The only remaining
-`androidTest` crypto is the optional on-device demo/attack suite (validates the same code under
-the real Android runtime).
+crypto test` runs the entire crypto suite (incl. PQC KATs) with zero setup. There is **no**
+`androidTest` crypto suite in the current tree.
 
 ---
 
@@ -135,7 +135,7 @@ The single per-contact ratchet for messages, media, and call/RTC signaling.
 - **Out-of-order / replay:** seal n=0,1,2; open 2 then 0 then 1 → all succeed (skipped-key cache); replay of a consumed frame → null.
 - **Tamper leaves state intact:** a forged frame returns null AND `decrypt` commits nothing (next valid frame still opens).
 - **Skip/healing bounds:** epoch skip cap **1024**, skip-flood gap **512** refused; **post-compromise healing** (a stolen session snapshot cannot read post-heal traffic).
-- **SAS:** both peers (same root) compute the same `sasCodeFor(target)`; a *different* root → different code (MITM detection); 6 digits; survives ratchet steps.
+- **SAS:** both peers (same root) compute the same `sasCodeFor(target)`; a *different* root → different code (MITM detection); 8 digits; survives ratchet steps.
 - **`mediaKey`** present after seed, 32 bytes, stable across ratchet steps, local-only (the two peers hold *different* media keys).
 - **`wipe`/`clear`:** after `wipe`, `isSeeded` false and `open` returns null; `clear` removes all contacts.
 - **Concurrency:** a per-contact `Mutex` serializes seals/opens (messages + signaling share one session).
@@ -224,6 +224,7 @@ crypto T2, `FakeRendezvous`, `FakeNotifier`):
 ### `MediaTransfer` + `MediaStore`
 - `MediaStore.writeEncrypted`/`readDecrypted` round-trip; `writeSealed`/`readSealed`; on-disk bytes contain **no plaintext header** (e.g. no `ftyp`/`moov` for video) — asserts at-rest encryption. `delete`/`wipeAll` remove files; `fileFor` path shape.
 - `MediaTransfer.sendMedia`/`sendAudio` chunk + seal + persist; `decryptForPreview` recovers original; tampered chunk rejected.
+- **IP gate, outbound and inbound:** with `IpExposureGate.relayOnly` true, `sendAudio` never calls `resolvePeerAddress`/`sendMediaChunked` and reports the contact in `noDeliveryPath`; with it false, the TCP fallback acks and the set clears. Inbound, `handleIncomingTcp` returns `false` under relay-only **without reading the socket** and inserts no message; under a permitted direct path it stores the reassembled media and writes an `ack` (`MediaTransferGateTest`).
 
 ### `ReactionManager.react`, `DisappearingManager` (`stampExpiryIfNeeded`, `setTimer`)
 - React add/remove updates message + sends control frame; mirrors on receive.
@@ -235,6 +236,7 @@ crypto T2, `FakeRendezvous`, `FakeNotifier`):
 
 ### `AppLockManager` (`setPin`, `setDecoyPin`, `tryUnlock`, `lock`, `disableLock`) — Robolectric/androidTest
 - `tryUnlock(real)` → `UnlockResult` success-real; `tryUnlock(decoy)` → success-decoy (plausible-deniability path); wrong → failure; PBKDF2 hash never stores the PIN in clear.
+- **PIN guard:** `disableLock`, `setPin` and `setDecoyPin` return `WRONG_PIN` without the current real PIN (and `LOCKED_OUT` during the lockout); the decoy PIN cannot disable the real lock; `forceDisableLock` (used by `SecureWipe`) still clears everything.
 - Duress wipe wiring (decoy/duress → triggers `SecureWipe` when configured).
 
 ### `CallManager` **state machine** (no real WebRTC — test the guard logic that caused the prod crashes)
@@ -315,9 +317,11 @@ A single table-driven suite asserting each property end-to-end:
 
 - **crypto module: ≥ 90% line / 100% of public crypto methods** (it's the crown jewels).
 - domain managers: ≥ 75%. ViewModels: ≥ 70%. UI: smoke only.
-- Gradle tasks: `:crypto:test` (T1, no native, must be green to merge) · `:crypto:test -Pnative` (T2) ·
-  `:app:testDebugUnitTest` (T1/T4/T5-VM + Robolectric) · `:app:connectedDebugAndroidTest` (T3/T4-Hilt/T5-UI).
-- CI gate: T1 + T4(fakes) + ViewModel on every push; native + androidTest on a nightly/emulator job.
+- Gradle tasks: `:crypto:test` (T1, no native, must be green to merge) ·
+  `:app:testDebugUnitTest` (T1/T4-fakes/T5-VM + Robolectric) ·
+  `:app:connectedDebugAndroidTest` (**not wired** — `androidTest` is empty).
+- CI gate: T1 + T4(fakes) + ViewModel on every push. There is no native tier and no
+  emulator/nightly `androidTest` job.
 
 ---
 

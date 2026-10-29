@@ -39,6 +39,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.aura.R
+import com.aura.security.AppLock
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -55,6 +56,8 @@ fun SettingsScreen(
     var showClearDialog by remember { mutableStateOf(false) }
     var showSetPin by remember { mutableStateOf(false) }
     var showSetDecoy by remember { mutableStateOf(false) }
+    var showDisablePin by remember { mutableStateOf(false) }
+    var pinError by remember { mutableStateOf<String?>(null) }
     var versionTaps by remember { mutableStateOf(0) }
 
     // Encrypted backup / restore.
@@ -112,8 +115,9 @@ fun SettingsScreen(
             PrivacySection(viewModel)
             SecuritySection(
                 viewModel,
-                onSetPin = { showSetPin = true },
-                onSetDecoy = { showSetDecoy = true }
+                onSetPin = { pinError = null; showSetPin = true },
+                onSetDecoy = { pinError = null; showSetDecoy = true },
+                onDisableLock = { pinError = null; showDisablePin = true }
             )
             NetworkSection(viewModel, onOpenShadowMesh, onOpenServer)
             AboutLegalSection(onOpenLegal)
@@ -151,19 +155,73 @@ fun SettingsScreen(
         }
     }
 
+    val lockEnabled by viewModel.lockEnabledFlow.collectAsState()
+    val wrongPinMessage = stringResource(R.string.pin_wrong_current)
+    val lockedOutMessage = stringResource(R.string.pin_locked_out)
+
     if (showSetPin) {
-        PinDialog(
-            title = stringResource(R.string.pin_set_lock),
-            onConfirm = { viewModel.setPin(it); showSetPin = false },
-            onDismiss = { showSetPin = false }
-        )
+        if (lockEnabled) {
+            PinChangeDialog(
+                title = stringResource(R.string.pin_change_lock),
+                error = pinError,
+                onConfirm = { current, newPin ->
+                    when (viewModel.setPin(newPin, current)) {
+                        AppLock.LockChangeResult.OK -> { showSetPin = false; pinError = null }
+                        AppLock.LockChangeResult.LOCKED_OUT -> pinError = lockedOutMessage
+                        AppLock.LockChangeResult.WRONG_PIN -> pinError = wrongPinMessage
+                    }
+                },
+                onDismiss = { showSetPin = false; pinError = null }
+            )
+        } else {
+            PinDialog(
+                title = stringResource(R.string.pin_set_lock),
+                onConfirm = { pin ->
+                    if (viewModel.setPin(pin) == AppLock.LockChangeResult.OK) showSetPin = false
+                },
+                onDismiss = { showSetPin = false }
+            )
+        }
     }
     if (showSetDecoy) {
+        if (lockEnabled) {
+            PinChangeDialog(
+                title = stringResource(R.string.pin_change_decoy),
+                subtitle = stringResource(R.string.pin_decoy_desc),
+                error = pinError,
+                onConfirm = { current, newPin ->
+                    when (viewModel.setDecoyPin(newPin, current)) {
+                        AppLock.LockChangeResult.OK -> { showSetDecoy = false; pinError = null }
+                        AppLock.LockChangeResult.LOCKED_OUT -> pinError = lockedOutMessage
+                        AppLock.LockChangeResult.WRONG_PIN -> pinError = wrongPinMessage
+                    }
+                },
+                onDismiss = { showSetDecoy = false; pinError = null }
+            )
+        } else {
+            PinDialog(
+                title = stringResource(R.string.pin_set_decoy),
+                subtitle = stringResource(R.string.pin_decoy_desc),
+                onConfirm = { pin ->
+                    if (viewModel.setDecoyPin(pin) == AppLock.LockChangeResult.OK) showSetDecoy = false
+                },
+                onDismiss = { showSetDecoy = false }
+            )
+        }
+    }
+    if (showDisablePin) {
         PinDialog(
-            title = stringResource(R.string.pin_set_decoy),
-            subtitle = stringResource(R.string.pin_decoy_desc),
-            onConfirm = { viewModel.setDecoyPin(it); showSetDecoy = false },
-            onDismiss = { showSetDecoy = false }
+            title = stringResource(R.string.pin_disable_title),
+            subtitle = stringResource(R.string.pin_disable_desc),
+            error = pinError,
+            onConfirm = { pin ->
+                when (viewModel.disableLock(pin)) {
+                    AppLock.LockChangeResult.OK -> { showDisablePin = false; pinError = null }
+                    AppLock.LockChangeResult.LOCKED_OUT -> pinError = lockedOutMessage
+                    AppLock.LockChangeResult.WRONG_PIN -> pinError = wrongPinMessage
+                }
+            },
+            onDismiss = { showDisablePin = false; pinError = null }
         )
     }
 

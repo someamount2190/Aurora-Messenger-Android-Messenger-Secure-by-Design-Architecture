@@ -20,7 +20,7 @@ data class LegalDoc(
 object LegalDocs {
     const val CONTACT_EMAIL = "christiancorrea26@gmail.com"
     const val DEVELOPER = "Christian Lim Correa, a Filipino developer"
-    const val EFFECTIVE_DATE = "June 14, 2026"
+    const val EFFECTIVE_DATE = "October 29, 2026"
 
     val TERMS = LegalDoc(
         key = "terms",
@@ -31,7 +31,7 @@ object LegalDocs {
 By downloading, installing, or using Aurora Messenger, you agree to be bound by these Terms and Conditions in their entirety. If you do not agree with any part of these Terms, you must not use Aurora Messenger. These Terms apply to all users of the Aurora Messenger application worldwide.
 
 # 2. About Aurora Messenger
-Aurora Messenger is a private messaging application developed by Christian Lim Correa, a Filipino developer. Aurora Messenger enables direct encrypted communication between devices without routing messages through central servers. Aurora Messenger is completely free to use. There are no subscription fees, no in-app purchases, and no advertising of any kind. Aurora Messenger is provided solely as a tool for private, lawful personal communication.
+Aurora Messenger is a private messaging application developed by Christian Lim Correa, a Filipino developer. Aurora Messenger enables direct encrypted communication between devices: messages travel from phone to phone by default. An optional relay, which is off unless you switch it on, can carry sealed messages through Aurora's server when a direct connection is impossible; the server cannot read them. Aurora Messenger is completely free to use. There are no subscription fees, no in-app purchases, and no advertising of any kind. Aurora Messenger is provided solely as a tool for private, lawful personal communication.
 
 # 3. Eligibility and Age Requirements
 ## 3.1 Minimum Age
@@ -67,14 +67,14 @@ Aurora Messenger is and will remain completely free to use. There are no subscri
 Aurora Messenger does not require you to create an account, provide a phone number, or submit any personal information. Your Aurora Messenger identity consists of a cryptographic key pair generated entirely on your own device. You are solely responsible for maintaining access to your device and safeguarding your Aurora Messenger identity.
 
 # 8. Data and Privacy
-The collection and use of data within Aurora Messenger is governed by our Privacy Policy, which is incorporated into these Terms by reference. In summary, Aurora Messenger stores no messages, no media, and no personal identity information. Our server retains only anonymous, automatically expiring technical data that is strictly necessary to connect two devices.
+The collection and use of data within Aurora Messenger is governed by our Privacy Policy, which is incorporated into these Terms by reference. In summary, Aurora Messenger does not store your messages, your media, or your personal identity information on its servers. Our server retains only anonymous, automatically expiring technical data that is strictly necessary to connect two devices. If you switch on the optional relay, the server also holds your sealed messages in memory for up to 60 seconds while it waits for the recipient; it cannot read them, and they are discarded after delivery or expiry.
 
 # 9. ShadowMesh Network
-Aurora Messenger offers an optional opt-in feature called ShadowMesh, which allows your device to participate in a decentralized relay network. By choosing to opt in, you agree to the following:
-- Your device will relay encrypted message fragments on behalf of other Aurora Messenger users
-- You will not have access to the content of any relayed messages, as all content is encrypted end-to-end
-- You may opt out of ShadowMesh at any time through the Settings menu
-- Participation in ShadowMesh is entirely voluntary and has no effect on Aurora Messenger's core messaging functionality
+Aurora Messenger includes an experimental, off-by-default feature called ShadowMesh. When you opt in, your device may forward sealed, end-to-end encrypted data to another network address on behalf of another Aurora user. By choosing to opt in, you agree to the following:
+- Your device may forward encrypted data on behalf of other Aurora Messenger users
+- You will not have access to the content of any forwarded data, as all content is encrypted end-to-end
+- ShadowMesh is early-stage: it is a single-hop forwarder, not yet a full decentralized relay network, and it is not required for messaging
+- You may opt out at any time through the Settings menu, and turning it off does not affect normal messaging
 
 # 10. Disclaimer of Warranties
 Aurora Messenger is provided on an as-is and as-available basis without warranty of any kind, whether express or implied. We do not warrant that Aurora Messenger will be uninterrupted, error-free, or entirely secure at all times. While we have taken extensive technical measures to protect user privacy, no system can guarantee complete immunity from all possible threats.
@@ -113,7 +113,7 @@ Aurora Messenger was built on one principle: your private conversations belong o
 Aurora Messenger does not collect any of the following:
 - Your name, phone number, or email address
 - Your messages, photos, videos, or any media you send or receive
-- Your contact list or any information about who you communicate with
+- Your contact list or any information about who you communicate with (the server sees transient signalling relationships while it routes a connection, but keeps no record of them)
 - Your location data
 - Behavioral data, analytics, or usage patterns
 - Any data for advertising or commercial profiling purposes
@@ -122,17 +122,18 @@ Aurora Messenger does not collect any of the following:
 # 3. What We Do Collect
 Aurora Messenger collects only the minimum data necessary to operate the service.
 ## 3.1 Anonymous Node ID
-When you install Aurora Messenger, your device generates a unique random identifier called a Node ID. This identifier is generated entirely on your device and stored only on your device. It contains no personal information and cannot be traced back to you by anyone, including us.
+When you install Aurora Messenger, your device generates a unique random identifier called a Node ID. This identifier is generated entirely on your device and stored only on your device. It contains no personal information and is not linked to your name, phone number, or email address. While your device is online, the rendezvous server does see this identifier together with your IP address (see 3.2), so it can be associated with a network address — but not with your real-world identity.
 ## 3.2 IP Address (Temporary)
 To help your phone locate the person you want to communicate with across the internet, Aurora Messenger's rendezvous server temporarily stores your Node ID alongside your current IP address. This record expires automatically after 15 minutes of inactivity. We do not log these records, we do not retain them beyond their expiry, and they exist solely for the purpose of helping two devices establish a direct connection. All such records are deleted automatically.
 ## 3.3 A Connection to Wake Your Device
-So that you receive messages and calls even when the app is closed, your device keeps a lightweight connection open to the rendezvous server. This connection lets the server wake your device when someone is trying to reach you. While the connection is open, the server can tell that your device is reachable, but it learns nothing else: it never sees your messages, your media, or who you are. The wake signal it passes along carries no content of any kind. It is only an instruction for your device to come online, after which the actual message travels directly from the sender's device to yours. We keep no logs of these connections or wake signals.
+So that you receive messages and calls even when the app is closed, your device keeps a lightweight connection open to the rendezvous server. This connection lets the server wake your device when someone is trying to reach you. While the connection is open, the server can tell that your device is reachable, but it learns nothing about your content: it never sees your messages, your media, or who you are. The wake signal it passes along carries no content of any kind. It is only an instruction for your device to come online, after which the actual message travels directly from the sender's device to yours — unless the optional relay is switched on (see Section 4). We keep no logs of these connections or wake signals.
 ## 3.4 Summary
-The information we handle is limited to your anonymous Node ID, a temporary record of your IP address, and a transient connection that tells the server only that your device is reachable. We store no messages, no media, no personal identity, no history, and no payment data, and we keep no logs.
+The information we handle is limited to your anonymous Node ID, a temporary record of your IP address, and a transient connection that tells the server only that your device is reachable. If you enable the optional relay, the server also handles sealed message frames in memory for up to 60 seconds. We do not store your messages, your media, your personal identity, your history, or payment data, and we keep no logs.
 
 # 4. How Your Messages Are Protected
-Every message you send is encrypted on your device before it leaves. It travels directly to the recipient's device and is decrypted only upon arrival. Aurora Messenger's server is never in the path of your messages, not even as an encrypted relay.
-Aurora Messenger uses post-quantum cryptography, including Kyber-1024 and XChaCha20-Poly1305 encryption standards. This protects your conversations not only against present-day threats but also against future quantum computing capabilities. Your messages are protected for the long term.
+Every message you send is encrypted on your device before it leaves, and it is decrypted only upon arrival. By default it travels directly to the recipient's device, and Aurora Messenger's server is not in the path of your messages.
+You can switch on an optional blind relay in Settings. When it is on and a direct connection is not possible, the server forwards your sealed messages without being able to read them. While doing so it can see who is messaging whom, when, and the size of each message. The relay is off by default.
+Aurora Messenger uses post-quantum cryptography, including ML-KEM-768 (X-Wing) and XChaCha20-Poly1305. This protects your conversations not only against present-day threats but also against future quantum computing capabilities. Your messages are protected for the long term.
 
 # 5. Children's Privacy
 Aurora Messenger is not intended for children under the age of 13. We do not knowingly collect any data from children under 13. Users between the ages of 13 and 17 may use Aurora Messenger only with the knowledge and consent of a parent or legal guardian.
@@ -140,14 +141,14 @@ Aurora Messenger can serve as a safer communication tool for families. When a pa
 If you believe a child under the age of 13 is using Aurora Messenger without parental consent, please contact us at christiancorrea26@gmail.com and we will take appropriate action promptly.
 
 # 6. ShadowMesh Network (Optional Opt-In)
-Aurora Messenger offers an optional feature called ShadowMesh. Users who choose to opt in allow their device to help relay encrypted message fragments for other Aurora Messenger users. You will never have access to the content of these messages, as they are encrypted end-to-end between the original sender and recipient. Your device functions as an anonymous relay node only.
+Aurora Messenger includes an experimental, off-by-default feature called ShadowMesh. Users who choose to opt in allow their device to forward sealed, end-to-end encrypted data on behalf of other Aurora Messenger users. You will never have access to the content, as it is encrypted end-to-end between the original sender and recipient. ShadowMesh is early-stage: it is a single-hop forwarder, not yet a full decentralized relay network, and it is not required for messaging. You can opt out at any time in Settings.
 
 # 7. Data Security
-All messages are encrypted end-to-end using post-quantum cryptography. Encryption keys are generated and held only on your device, protected by Android's hardware-backed Keystore. Our server stores only anonymous, auto-expiring records. We maintain a strict zero-log policy on our rendezvous server.
+All messages are encrypted end-to-end using post-quantum cryptography. Encryption keys are generated and held only on your device, protected by Android's hardware-backed Keystore. Our server keeps only anonymous, auto-expiring records and, when the optional relay is used, sealed frames for up to 60 seconds. We maintain a strict zero-log policy on our rendezvous server.
 
 # 8. Data Sharing
 We do not sell your data. We do not share your data with advertisers. We do not share your data with any third party for any commercial or non-commercial purpose. We have no data to share because we do not collect it.
-In the event of a legal request or court order, we are only able to provide what exists in our system: anonymous Node IDs and temporarily cached IP addresses that expire automatically. We have no message content, no personal identities, and no communication history to provide to any party.
+In the event of a legal request or court order, we are only able to provide what exists in our system: anonymous Node IDs, temporarily cached IP addresses that expire automatically, and — only if the optional relay is in use — sealed message frames buffered for delivery, which we cannot read and which are discarded within 60 seconds. We have no message content, no personal identities, and no communication history to provide to any party.
 
 # 9. Your Rights
 Because Aurora Messenger stores no personal data linked to your identity, most traditional data subject rights do not apply in the conventional sense. However, the following applies to all users:

@@ -6,6 +6,11 @@ import androidx.test.core.app.ApplicationProvider
 import com.aura.db.AuroraDatabase
 import com.aura.db.ContactEntity
 import com.aura.db.DbKeyStore
+import com.aura.db.GroupDeliveryEntity
+import com.aura.db.GroupEntity
+import com.aura.db.GroupMemberEntity
+import com.aura.db.GroupMembershipEventEntity
+import com.aura.db.GroupMessageEntity
 import com.aura.db.KemRatchetEntity
 import com.aura.db.MeshPeerEntity
 import com.aura.db.MessageEntity
@@ -65,6 +70,24 @@ class SecureWipeTest {
         db.ratchetDao().kemUpsert(KemRatchetEntity(node, "kem-session-blob"))   // the key material that MUST die
         db.prekeyDao().insert(PrekeyEntity("p1", "opk", "pub", "priv", createdAtMs = 1))
         db.meshPeerDao().upsertAll(listOf(MeshPeerEntity("1.2.3.4:5", "1.2.3.4", 5, 1, 1)))
+        // Group tables must die too, even though the shipped UI cannot create groups yet.
+        db.groupDao().upsertGroup(
+            GroupEntity("g1", "Group", node, "verify", 1, "hash", 1, "CREATOR", "ACTIVE")
+        )
+        db.groupDao().upsertMember(GroupMemberEntity("g1", node, "verify", "kem", 1, "ACTIVE"))
+        db.groupDao().insertEvent(
+            GroupMembershipEventEntity(
+                "e1", "g1", 1, "hash", "ADD", node, "verify", "kem", "Group", node, 1, "sig"
+            )
+        )
+        db.groupMessageDao().insertMessage(
+            GroupMessageEntity(
+                "gm1", "g1", node, fromMe = true, body = "hi", type = "text",
+                timestampMs = 1, senderSeq = 1, logicalClock = 1,
+                membershipVersion = 1, localState = "SENT"
+            )
+        )
+        db.groupMessageDao().upsertDelivery(GroupDeliveryEntity("gm1", "rid", "g1", null, null, "QUEUED"))
     }
 
     @Test fun wipeEverything_actuallyEmptiesEveryTable_andClearsSettings_andInvokesKeyDestruction() = runBlocking {
@@ -83,6 +106,11 @@ class SecureWipeTest {
             assertTrue(reopened.ratchetDao().allKemForBackup().isEmpty(), "KEM ratchet sessions erased")
             assertEquals(0, reopened.prekeyDao().unusedOpkCount(), "prekeys erased")
             assertTrue(reopened.meshPeerDao().all().isEmpty(), "mesh peers erased")
+            assertNull(reopened.groupDao().group("g1"), "groups erased")
+            assertTrue(reopened.groupDao().members("g1").isEmpty(), "group members erased")
+            assertTrue(reopened.groupDao().events("g1").isEmpty(), "group membership events erased")
+            assertNull(reopened.groupMessageDao().message("gm1"), "group messages erased")
+            assertTrue(reopened.groupMessageDao().deliveries("gm1").isEmpty(), "group deliveries erased")
         } finally {
             reopened.close()
         }
@@ -90,7 +118,7 @@ class SecureWipeTest {
 
         // Un-fakeable key-destruction + file-removal seams still fire.
         coVerify { media.wipeAll() }
-        coVerify { appLock.disableLock() }
+        coVerify { appLock.forceDisableLock() }
         coVerify { identity.clear() }
         coVerify { dbKey.clear() }
         coVerify { context.deleteDatabase("aura.db") }

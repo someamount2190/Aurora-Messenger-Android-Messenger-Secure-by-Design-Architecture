@@ -15,20 +15,33 @@ contacts are unaffected), and the app needs the matching rendezvous server.
   default, English, Русский). On Android 13+ Aurora also appears in the phone's per-app
   language settings. All UI text now lives in string resources, and a unit test fails the
   build if a translation is missing a string or a placeholder.
-- **Blind relay.** When neither the peer-to-peer data channel nor a direct connection can
-  reach a contact (for example both on mobile data), messages travel through the rendezvous
-  server's relay. They stay end-to-end encrypted; the relay only routes them. An offline
-  contact is woken and the message waits up to a minute for them. Relay connections are
-  authenticated, and delivery is confirmed by the recipient's own receipt.
+- **Blind relay, off by default.** When neither the peer-to-peer data channel nor a direct
+  connection can reach a contact (for example both on mobile data), messages can travel through
+  the rendezvous server's relay — but only if you turn it on in Settings → Privacy, after a
+  warning that the server will see who is messaging whom, when, and how large each message is.
+  Messages stay end-to-end encrypted; the relay only routes them. An offline contact is woken
+  and the message waits up to a minute for them. Relay connections are authenticated, and
+  delivery is confirmed by the recipient's own receipt. Turning the relay off never disables
+  discovery, address lookup, or wake-ups.
 - **"Who can see your IP address"** (Settings → Privacy): any contact (default), verified
   contacts only, or never. With "never", connections to contacts are relayed so they don't
-  learn your IP; calls in that mode need a TURN server.
+  learn your IP; calls in that mode need a TURN server. A relay-only choice requires the relay
+  to be on — the app refuses the combination while it is off.
 - TURN support: the app picks up short-lived TURN credentials from the server when the
   operator configures them.
 - Calls request constant-bitrate Opus and cap audio/video bandwidth; data-channel frames are
   padded to fixed size buckets.
 
 ### Changed
+- **The server relay is now an opt-in message transport.** It was previously used automatically
+  as a last resort. Discovery, rendezvous, candidate exchange and wake-ups are unaffected by the
+  switch; they are separate signalling calls. If no permitted path exists, the conversation now
+  says "not delivered" instead of showing an unexplained pending state.
+- **Legal documents updated (effective 2026-10-29).** The Privacy Policy and Terms now describe
+  the optional relay (off by default, metadata-visible when on), disclose that the server sees
+  your Node ID together with your IP address while you are online, disclose the 60-second
+  sealed-frame buffer, and describe ShadowMesh as an experimental single-hop forwarder rather
+  than a working decentralized network.
 - **Prekeys are verified post-quantum.** Each prekey carries an ML-DSA-65 + Ed25519 signature,
   and the scanner checks both halves against a signing key bound to the scanned code. A bundle
   that doesn't verify aborts pairing.
@@ -39,6 +52,19 @@ contacts are unaffected), and the app needs the matching rendezvous server.
 - Bouncy Castle 1.84 → 1.85 (CVE-2026-8763, CVE-2026-13506; neither was reachable from Aurora).
 
 ### Security
+- **Media now honours the IP-exposure setting, in both directions.** Photos, videos and voice
+  notes used to fall back to a direct TCP connection even when your setting said a contact must
+  not learn your IP. They now go through the same gate as text: over a TURN-relayed WebRTC
+  channel, or not at all. Inbound media is covered too: a direct TCP media transfer from a
+  contact you have not permitted is refused before its payload is read, so a peer whose own
+  setting is more permissive cannot override yours. When no permitted path exists the
+  conversation says "not delivered" instead of showing a silent pending state. (Media has no
+  server-relay path, so it waits for the data channel.)
+- **Changing or removing the app lock requires your current PIN.** Previously, anyone holding
+  your unlocked phone could switch the lock off — or replace your PIN — from Settings without
+  knowing it. Disabling the lock, changing the real PIN and changing the decoy PIN now all verify
+  the current real PIN first; a wrong one counts toward the existing lockout, and the decoy PIN
+  can never tear down the real lock. "Clear all data" still removes the lock as part of the wipe.
 - **Tapjacking protection on sensitive taps.** Aurora now drops touches that pass through a window
   another app has drawn over it, so a malicious overlay can't trick you into confirming a safety-number
   match, answering a call, entering your PIN, or trusting a custom server. (Aurora's own floating call
@@ -85,6 +111,9 @@ contacts are unaffected), and the app needs the matching rendezvous server.
   at 8).
 
 ### Fixed
+- **"Clear All Data" now clears the group tables.** `SecureWipe` previously relied on deleting
+  the database file for the five group tables; it now deletes their rows explicitly too, so the
+  logical wipe is complete even if the file delete is blocked.
 - **Runs on 16 KB-page Android 15 devices.** The bundled SQLCipher native library was aligned
   for 4 KB memory pages, so on newer Android 15 phones that use 16 KB pages it failed to load
   and the encrypted database couldn't open. SQLCipher is updated to 4.9.0 (16 KB-ready) and the
@@ -331,7 +360,8 @@ accumulated since the first tag.
   `!!`, imports over fully-qualified references).
 - **Test suite.** Added JVM/Robolectric unit tests for the crypto core and app layer plus
   native instrumented crypto/attack tests, with `docs/TEST_ARCHITECTURE.md` and
-  `docs/TEST_STATUS.md`.
+  `docs/TEST_STATUS.md`. *(The instrumented suite has since been removed — `app/src/androidTest`
+  is empty in the current tree.)*
 - Video calls use software VP8/VP9 codecs for cross-device portability. (The native
   post-quantum / Bouncy Castle stack is unchanged.)
 - `android.util.Base64` in the crypto core was replaced with `java.util.Base64` as part of

@@ -37,8 +37,15 @@ class AppLock internal constructor(
 
     enum class UnlockResult { REAL, DECOY, WRONG, LOCKED_OUT }
 
+    /** Outcome of a PIN-gated lock change (set / change / disable). */
+    enum class LockChangeResult { OK, WRONG_PIN, LOCKED_OUT }
+
     private val _locked = MutableStateFlow(isLockEnabled())
     val locked: StateFlow<Boolean> = _locked
+
+    private val _enabled = MutableStateFlow(isLockEnabled())
+    /** True while a real PIN exists. Unlike [locked], this stays true while unlocked. */
+    val enabled: StateFlow<Boolean> = _enabled
 
     private val _decoyActive = MutableStateFlow(false)
     /** True when the app was unlocked with the decoy PIN — data layer shows nothing. */
@@ -50,24 +57,70 @@ class AppLock internal constructor(
 
     fun isLockEnabled(): Boolean = prefs.contains(KEY_REAL_HASH)
 
-    /** Set (or change) the real PIN. */
-    fun setPin(pin: String) {
+    /**
+     * Set the first PIN, or change it. Changing an existing lock requires [currentPin]:
+     * knowing only the new PIN must not let someone take over or replace the lock.
+     */
+    fun setPin(newPin: String, currentPin: String? = null): LockChangeResult {
+        if (isLockEnabled()) {
+            if (currentPin == null) return LockChangeResult.WRONG_PIN
+            when (tryUnlock(currentPin)) {
+                UnlockResult.REAL -> Unit
+                UnlockResult.LOCKED_OUT -> return LockChangeResult.LOCKED_OUT
+                else -> return LockChangeResult.WRONG_PIN
+            }
+        }
         prefs.edit()
             .putString(KEY_SALT, ensureSalt())
-            .putString(KEY_REAL_HASH, hash(pin))
+            .putString(KEY_REAL_HASH, hash(newPin))
             .apply()
         resetAttempts()
         _locked.value = true
+        _enabled.value = true
+        _decoyActive.value = false
+        return LockChangeResult.OK
     }
 
-    fun setDecoyPin(pin: String) {
-        prefs.edit().putString(KEY_DECOY_HASH, hash(pin)).apply()
+    /** Set or replace the decoy PIN. Replacing an existing one requires [currentPin]. */
+    fun setDecoyPin(newPin: String, currentPin: String? = null): LockChangeResult {
+        if (isLockEnabled()) {
+            if (currentPin == null) return LockChangeResult.WRONG_PIN
+            when (tryUnlock(currentPin)) {
+                UnlockResult.REAL -> Unit
+                UnlockResult.LOCKED_OUT -> return LockChangeResult.LOCKED_OUT
+                else -> return LockChangeResult.WRONG_PIN
+            }
+        }
+        prefs.edit().putString(KEY_DECOY_HASH, hash(newPin)).apply()
+        return LockChangeResult.OK
     }
 
-    fun disableLock() {
+    /**
+     * Turn the app lock off. Requires the **real** current PIN: someone holding an
+     * unlocked phone must not be able to simply remove the lock. The decoy PIN is
+     * rejected here (it only opens the empty view and must not tear down the real lock).
+     */
+    fun disableLock(currentPin: String): LockChangeResult {
+        if (!isLockEnabled()) return LockChangeResult.OK
+        return when (tryUnlock(currentPin)) {
+            UnlockResult.REAL -> {
+                forceDisableLock()
+                LockChangeResult.OK
+            }
+            UnlockResult.LOCKED_OUT -> LockChangeResult.LOCKED_OUT
+            else -> LockChangeResult.WRONG_PIN
+        }
+    }
+
+    /**
+     * Unguarded removal, for [SecureWipe] only — by the time it runs the DB key and
+     * identity vault are already destroyed, and there is no user to ask for a PIN.
+     */
+    internal fun forceDisableLock() {
         prefs.edit().remove(KEY_REAL_HASH).remove(KEY_DECOY_HASH).apply()
         resetAttempts()
         _locked.value = false
+        _enabled.value = false
         _decoyActive.value = false
     }
 

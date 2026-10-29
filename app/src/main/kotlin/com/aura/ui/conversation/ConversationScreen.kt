@@ -146,6 +146,7 @@ fun ConversationScreen(
     val playingId by viewModel.playingId.collectAsState()
     val callActive by viewModel.callActive.collectAsState()
     val connection by viewModel.connection.collectAsState()
+    val deliveryBlocked by viewModel.deliveryBlocked.collectAsState()
     // Mark the conversation read on open and whenever new messages land while it's visible.
     LaunchedEffect(messages) { if (messages.isNotEmpty()) viewModel.markRead() }
     // Leave the screen if the contact disappears (we deleted it, or the peer removed us).
@@ -342,10 +343,14 @@ fun ConversationScreen(
             // (the app-bar status is kept to a terse one-liner). The two failure modes
             // get different copy (patch §G): UNREACHABLE = both reachable on the network
             // but no direct path (likely mobile data); FAILED = the peer never answered.
-            val failureBanner = when (connection) {
-                RtcState.UNREACHABLE ->
+            // "No permitted path" outranks the transport-failure banners: it is not a
+            // connectivity problem the peer can fix, it is a setting the user can change.
+            val failureBanner = when {
+                deliveryBlocked ->
+                    stringResource(R.string.conv_banner_no_path)
+                connection == RtcState.UNREACHABLE ->
                     stringResource(R.string.conv_banner_unreachable)
-                RtcState.FAILED ->
+                connection == RtcState.FAILED ->
                     stringResource(R.string.conv_banner_failed)
                 else -> null
             }

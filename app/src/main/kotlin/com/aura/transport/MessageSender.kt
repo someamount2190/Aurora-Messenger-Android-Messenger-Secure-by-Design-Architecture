@@ -15,6 +15,9 @@ import com.aura.transport.rtc.PeerTransport
 import com.aura.di.IoDispatcher
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -49,6 +52,18 @@ class MessageSender @Inject constructor(
 ) {
     private val flushMutex = Mutex()
 
+    /**
+     * Contacts with pending outbound messages that this device is **not permitted** to
+     * deliver: the IP-exposure policy forbids a direct connection and the server relay is
+     * off. Recomputed on every [flushPending]; the UI reads it to explain why a message is
+     * still pending instead of leaving it silent.
+     *
+     * Derived state, deliberately not persisted: the next flush rebuilds it, and it must not
+     * survive a settings change that restores a permitted path.
+     */
+    private val _noDeliveryPath = MutableStateFlow<Set<String>>(emptySet())
+    val noDeliveryPath: StateFlow<Set<String>> = _noDeliveryPath.asStateFlow()
+
     /** Phase 6 hook: stamp expiry when one of our messages is acked (delivered). */
     var onOutboundDelivered: (suspend (messageId: String, contactNodeIdHex: String) -> Unit)? = null
 
@@ -60,6 +75,7 @@ class MessageSender @Inject constructor(
     /** Try to deliver all pending messages for all contacts. Safe to call often. */
     suspend fun flushPending() = flushMutex.withLock {
         val contactsWithPending = messageDao.contactsWithPending()
+        val noPath = HashSet<String>()
         for (nodeIdHex in contactsWithPending) {
             val contact = contactDao.byNodeId(nodeIdHex) ?: continue
 
@@ -89,14 +105,31 @@ class MessageSender @Inject constructor(
 
             // Last resort: the blind relay. It reaches a peer behind any NAT without exposing
             // either IP; if the peer is offline the server buffers the frame and wakes them.
-            if (derpTransport != null) {
+            // Opt-in only: with the relay off the message stays pending rather than being
+            // passed through the server (see AuroraSettings.relayEnabled).
+            if (derpTransport != null && settings.relayEnabled.value) {
                 deliverPendingOver(contact) { frame -> derpTransport.send(nodeIdHex, frame) }
             } else {
                 // No relay: tap their wake channel so the backgrounded app comes online and
-                // a later flush can reach it directly.
+                // a later flush can reach it directly. Tapping is signalling only — it carries
+                // no message payload and works with the relay off.
                 rendezvousClient.tap(settings.serverAddress.value, nodeIdHex)
             }
+
+            // Still pending, and this device is not allowed to use any path for this contact?
+            // Record it so the conversation can say so rather than showing a silent "pending".
+            if (messageDao.pendingForContact(nodeIdHex).isNotEmpty() &&
+                !hasPermittedDeliveryPath(
+                    relayEnabled = settings.relayEnabled.value,
+                    directAllowed = settings.peerIpExposurePolicy.value
+                        .allowsDirect(contact.isMutuallyVerified),
+                    rtcConnected = rtcTransport.isConnected(nodeIdHex)
+                )
+            ) {
+                noPath += nodeIdHex
+            }
         }
+        _noDeliveryPath.value = noPath
     }
 
     /** Resolve [contact]'s current address through the rendezvous server. */
@@ -319,3 +352,20 @@ class MessageSender @Inject constructor(
         const val MEDIA_CHUNK_BYTES = 256 * 1024
     }
 }
+
+/**
+ * True if at least one delivery path is **permitted** for a contact.
+ *
+ * Permission is not reachability: a permitted path can still fail because the peer is
+ * offline or behind a NAT that blocks it. This answers only "may we try?", which is what
+ * decides whether an undelivered message deserves an explanation in the UI.
+ *
+ * Direct TCP is permitted per [com.aura.settings.PeerIpExposurePolicy]; the relay is
+ * permitted only when the user opted in; an already-open RTC data channel is permitted
+ * regardless of policy (the gate already applied when it was established).
+ */
+internal fun hasPermittedDeliveryPath(
+    relayEnabled: Boolean,
+    directAllowed: Boolean,
+    rtcConnected: Boolean
+): Boolean = relayEnabled || directAllowed || rtcConnected

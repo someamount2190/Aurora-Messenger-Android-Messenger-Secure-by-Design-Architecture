@@ -56,10 +56,10 @@ Aurora is built so that a conversation stays private even if:
 | **Account needed** | None: no phone number, email, or username |
 | **Who can read messages** | Only the two phones in the conversation |
 | **Encryption** | Hybrid post-quantum + classical, end to end, with per-message forward secrecy and self-healing keys |
-| **How you add a contact** | Scan their QR code, then both confirm a 6-digit code |
-| **Where messages go** | Phone to phone when possible; through a blind relay (which can't read them) when not |
+| **How you add a contact** | Scan their QR code, then both confirm a 8-digit code |
+| **Where messages go** | Phone to phone. A blind relay (which cannot read them) exists but is **off by default** |
 | **What the server stores** | A short-lived "this device is reachable at this address" record, in memory only, no logs |
-| **Conversations** | One-to-one only (no groups); one device per identity |
+| **Conversations** | One-to-one today (group tables and tests exist, but the feature is not reachable from the UI); one device per identity |
 | **Platform** | Android 10+ (API 29), Kotlin + Jetpack Compose |
 | **License** | AGPL-3.0-or-later |
 
@@ -72,8 +72,8 @@ Aurora is built so that a conversation stays private even if:
 | **Messaging** | Text, replies, emoji reactions, per-conversation disappearing-message timers, on-device conversation streaks |
 | **Media** | Photos, videos (in-app player with seek bar, decrypted in memory), voice messages; all stored encrypted |
 | **Calls** | Voice and video (WebRTC) with real ringing, lock-screen handling, an in-app ongoing-call bar and a floating overlay; calls survive leaving the app |
-| **Pairing** | QR code + mutual 6-digit verification; rejects mismatched codes, with the short-code limitation described below |
-| **Delivery** | Peer-to-peer data channel, direct TCP on the same network, or a blind relay as a last resort; offline messages are retried and the recipient is woken |
+| **Pairing** | QR code + mutual 8-digit verification; rejects mismatched codes, with the short-code limitation described below |
+| **Delivery** | Peer-to-peer data channel, direct TCP on the same network, or a blind relay you can opt into as a last resort; offline messages are retried and the recipient is woken |
 | **Privacy** | Choose who may learn your IP address; no third-party push service; the server keeps no logs |
 | **Device security** | App lock with a **decoy PIN**, optional **duress wipe**, screenshot and recents blocking, root warning |
 | **Erase** | Cryptographic erase: destroying keys makes all on-disk data unreadable instantly |
@@ -103,7 +103,7 @@ flowchart LR
   A <-->|"control plane: check in, look up, wake<br/>(signed, TLS with certificate pinning)"| RZ
   B <-->|control plane| RZ
   A <==>|"data plane: sealed messages and calls<br/>direct whenever possible"| B
-  A -.->|"blind relay (last resort): still sealed"| RZ -.-> B
+  A -.->|"blind relay (opt-in): still sealed"| RZ -.-> B
 ```
 
 The pieces, in the order you meet them:
@@ -112,7 +112,7 @@ The pieces, in the order you meet them:
 |---|---|---|
 | 1 | Your phone generates its keys; their hash becomes your address (**nodeId**) | [§4](#4-your-identity) |
 | 2 | You scan a contact's QR code and run a forward-secret handshake | [§5](#5-pairing-with-a-contact) |
-| 3 | You both confirm a 6-digit code to detect an intercepted pairing | [§5](#5-pairing-with-a-contact) |
+| 3 | You both confirm a 8-digit code to detect an intercepted pairing | [§5](#5-pairing-with-a-contact) |
 | 4 | Every message is sealed with a fresh key from a post-quantum ratchet | [§6](#6-how-a-message-is-encrypted) |
 | 5 | The sealed message takes the best available path to your contact | [§7](#7-how-a-message-travels) |
 
@@ -172,7 +172,7 @@ Pairing does two jobs: **agree on a shared secret that nobody else can rebuild l
 | 5 | Encapsulate to their identity key, signed prekey, and one-time prekey; derive the pairing root | | Three-way agreement = forward secrecy |
 | 6 | Send the pairing request | Sees an incoming request: **Accept** or **Reject** | No silent contact creation |
 | 7 | | Destroys the one-time prekey, derives the same root | A later key theft can't rebuild it |
-| 8 | Both phones show a 6-digit code; each types the **other's** | | A man-in-the-middle gets mismatched codes |
+| 8 | Both phones show a 8-digit code; each types the **other's** | | A man-in-the-middle gets mismatched codes |
 | 9 | Chat opens | Chat opens | Verified both ways |
 
 ```mermaid
@@ -190,14 +190,14 @@ sequenceDiagram
   S->>R: sealed pairing request
   R-->>H: wake + deliver
   H->>H: accept, decapsulate, delete one-time prekey → same root
-  Note over S,H: both enter their contact's 6-digit code
+  Note over S,H: both enter their contact's 8-digit code
   Note over S,H: codes match → chat opens · mismatch → pairing fails
 ```
 
 **Fails closed.** If no verifiable prekey bundle is available (none published, server down, or
 an attacker suppressing it), pairing stops rather than continuing without forward secrecy.
 
-**Why sharing a QR over a chat app is OK:** the 6-digit codes are computed on each phone from
+**Why sharing a QR over a chat app is OK:** the 8-digit codes are computed on each phone from
 the session and never transmitted. Someone who intercepted the QR and sat in the middle would
 end up with a different session on each side, so the codes wouldn't match. Wrong entries are
 attempt-limited, and repeated failures block and wipe the pending contact.
@@ -261,8 +261,10 @@ flowchart TD
   RTC -->|no| WARM["Start opening one in the background"] --> POL{"Your IP setting allows<br/>a direct connection?"}
   POL -->|yes| TCP{"Contact reachable<br/>by direct TCP?"}
   TCP -->|yes| SEND2["Send over direct TCP"]
-  TCP -->|no| RELAY
-  POL -->|no| RELAY["Send through the blind relay"]
+  TCP -->|no| GATE{"Blind relay<br/>enabled?"}
+  POL -->|no| GATE
+  GATE -->|no| NOPATH["Not delivered: the conversation<br/>says no permitted path exists"]
+  GATE -->|yes| RELAY["Send through the blind relay"]
   RELAY --> ON{"Contact online?"}
   ON -->|yes| SEND3["Delivered; their phone's receipt comes back"]
   ON -->|no| Q["Server holds it up to 60 s and wakes them;<br/>your phone keeps retrying"]
@@ -272,7 +274,7 @@ flowchart TD
 |---|---|---|---|
 | **WebRTC data channel** | Usually; crosses most carrier NATs (IPv6 first, then IPv4) | Your contact (unless relay-only) | Fast |
 | **Direct TCP** | Same Wi-Fi or directly reachable | Your contact | Fastest |
-| **Blind relay** | Nothing direct works, or your setting forbids it | Only the server | Good |
+| **Blind relay** (opt-in, off by default) | You enabled it, and nothing direct works or your setting forbids it | Only the server | Good |
 
 A message is only marked **delivered** when the recipient's phone has decrypted and stored it
 and sent back its own receipt, on every path.
@@ -281,6 +283,13 @@ and sent back its own receipt, on every path.
 
 The relay is a WebSocket on the rendezvous server that passes sealed frames between two
 authenticated phones. It cannot decrypt them.
+
+**It is off by default.** Messages are delivered peer-to-peer; the relay is a transport you
+turn on explicitly in **Settings → Privacy**, after a warning that encrypted messages and
+their metadata (who, when, how large) will pass through the server. Turning it off never
+disables discovery, address lookups, or wake-ups — those are separate signalling calls and
+keep working either way. If a message cannot be delivered and the relay is off, the
+conversation says so instead of leaving it silently pending.
 
 ```mermaid
 sequenceDiagram
@@ -357,12 +366,18 @@ A direct connection necessarily tells the other phone your IP address. **Setting
 | Setting | Direct connections allowed with | Effect |
 |---|---|---|
 | **Any contact (fastest)**, default | Every contact | Best speed; contacts can see your IP |
-| **Verified contacts only** | Contacts you've both verified with the 6-digit code | Unverified contacts only get relayed connections |
-| **Never: always relay** | Nobody | Messages use the blind relay; calls need TURN; contacts never see your IP |
+| **Verified contacts only** | Contacts you've both verified with the 8-digit code | Unverified contacts can only be reached through the relay |
+| **Never: always relay** | Nobody | Nothing direct; needs the relay or a TURN server |
 
 In the relayed modes, WebRTC is restricted to relayed candidates for both messages and calls, so
 your IP isn't exposed through the data channel either. The rendezvous server still sees your IP
 in every mode; it has to, to deliver anything.
+
+**A relay-only policy needs the relay switched on to deliver anything.** The app refuses to
+select "Never: always relay" while the relay is off, and the conversation shows a "not
+delivered" banner if the combination is reached another way. With the relay off, "Verified
+contacts only" leaves unverified contacts undelivered until they verify or you change the
+setting.
 
 ---
 
@@ -371,7 +386,7 @@ in every mode; it has to, to deliver anything.
 | The server **can** see | The server **cannot** see |
 |---|---|
 | That a nodeId is online and its IP address | Message, media, or call content |
-| Which nodeIds signal or relay to which, and when | Your contacts list or message history (it keeps none) |
+| Which nodeIds signal to which, and when; **only if you enable the relay**, which messages pass through it | Your contacts list or message history (it keeps none) |
 | Frame sizes and timing | Your private keys |
 | Prekey bundles (public keys only) | Who you are: there's no account, phone number, or email |
 
@@ -422,10 +437,12 @@ messenger's encryption; Aurora warns when it detects root, but can't prevent thi
 | Key derivation | HKDF-SHA-256 (RFC 5869) | | Bouncy Castle |
 | Hashing / identity | SHA3-256 | | Bouncy Castle |
 | Backup passphrase | Argon2id | | Bouncy Castle |
-| Database | SQLCipher | AES-256 | SQLCipher 4.5.6 |
+| Database | SQLCipher | AES-256 | SQLCipher 4.9.0 |
 
-The `crypto` module is pure JVM. The Android app still includes native SQLCipher and
-WebRTC libraries; removing liboqs did not remove those native dependencies.
+The `crypto` module is pure JVM (Bouncy Castle + Tink) and no longer calls liboqs. The Android
+app still includes native SQLCipher and WebRTC libraries. Note that the unused
+`liboqs-java-0.3.0` artifact is **still vendored** in `libs/maven/org/openquantumsafe` and
+should be deleted before any release; it is dead weight, not a runtime dependency.
 Correctness is checked against independent
 references: **NIST ACVP** known-answer tests (ML-KEM-768, ML-DSA-65), **Wycheproof** edge-case
 corpora (X25519, Ed25519, XChaCha20-Poly1305, ML-KEM-768, ML-DSA-65), and the RFC 8032 / 7748 /
@@ -436,8 +453,8 @@ corpora (X25519, Ed25519, XChaCha20-Poly1305, ML-KEM-768, ML-DSA-65), and the RF
 ## 13. Security claims and non-claims
 
 Current limitations and pending validation are tracked in
-[`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md). In particular, the six-digit pairing
-code has about 20 bits of entropy; it does not offer unlimited resistance to an active
+[`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md). In particular, the eight-digit pairing
+code has about 26.6 bits of entropy; it does not offer unlimited resistance to an active
 attacker who can repeat handshakes. Server metadata privacy and 16 KB Android page-size
 compatibility also remain open work.
 
@@ -449,7 +466,7 @@ compatibility also remain open work.
 | Authenticity and integrity | Hybrid signatures and authenticated encryption |
 | Forward secrecy | Per-message ratchet + forward-secret PQXDH handshake |
 | Post-compromise healing | KEM Double Ratchet (review-gated, see below) |
-| Man-in-the-middle-resistant pairing | Mutual 6-digit verification fails closed |
+| Man-in-the-middle-resistant pairing | Mutual 8-digit verification fails closed |
 | Identity binding | `nodeId = SHA3-256(keys)`; prekey signing keys must hash to the nodeId |
 | Post-quantum resistance | An attacker must break both the post-quantum and the classical primitive |
 | Metadata minimization | No account; in-memory, no-log server; decoy lookups; optional IP hiding |
@@ -535,10 +552,12 @@ On Windows, use `.\gradlew.bat` and set `JAVA_HOME` (Android Studio's bundled `j
 | Suite | Tests | What it covers |
 |---|---|---|
 | `crypto` | 161 | Primitives, NIST ACVP and Wycheproof vectors, ratchet (incl. healing and attacks), prekeys and prekey verification |
-| `app` | 179 | Database and migrations, pairing and SAS, end-to-end message simulations, PQXDH handshake, relay client, SDP handling, security orchestration |
+| `app` | 233 | Database and migrations, pairing and SAS, end-to-end message simulations, PQXDH handshake, relay client and its opt-in gate, media IP-exposure gate (outbound and inbound), app-lock PIN guard, SDP handling, security orchestration |
 | `rendezvous-server` | 18 | Relay auth and delivery, crash resistance, malformed frames, queue fairness, TURN gating, prekey bundles |
 
-Counts above are the recorded 2026-10-27 baseline (358 total); they are not a new test run.
+Counts above are from the 2026-10-29 run (412 total: 161 + 233 + 18). The app suite was
+re-run after the media-gate (outbound and inbound) and app-lock changes; the crypto and server
+figures are the last recorded runs.
 All three run in GitHub Actions on every push. Details: [`docs/TEST_STATUS.md`](docs/TEST_STATUS.md).
 Some paths (live two-phone calls, QR camera scanning) still need physical devices.
 
@@ -614,8 +633,8 @@ Aurora something that can actually reach people's hands, while still standing on
 cryptographic foundation.
 
 ShadowMesh itself is **paused, not abandoned.** I haven't yet decided whether it continues as a
-standalone project or folds in as the **mesh/relay backend for Aurora**. The optional ShadowMesh
-relay already wired into Aurora is the seam where that would happen. Either way, Aurora is the
+standalone project or folds in as the **mesh/relay backend for Aurora**. The dormant ShadowMesh
+scaffold in Aurora is the seam where that would happen. Either way, Aurora is the
 near-term focus, and it is expected to **grow well beyond its current scope** over time; today's
 two-person messenger is a foundation, not the finished shape.
 
@@ -631,7 +650,7 @@ two-person messenger is a foundation, not the finished shape.
 | `nodeId = SHA3-256(keys)` | Address can't be claimed with substitute keys | Keys can't rotate without a new identity |
 | KEM Double Ratchet | Forward secrecy and healing, both post-quantum | Bespoke code, pending review |
 | Direct P2P with a near-zero-knowledge server | Messages avoid the server whenever possible | The server learns reachability |
-| Blind relay as the last resort | Delivers across any NAT without exposing IPs to contacts | The relay sees who talks to whom |
+| Blind relay as an opt-in last resort | Delivers across any NAT without exposing IPs to contacts | The relay sees who talks to whom |
 | Contentless wake instead of Firebase push | No push provider; no content leaves the phone | The server can tell a phone is online |
 | Cryptographic erase instead of scrubbing | Flash wear-leveling makes overwriting unreliable | Requires keys to be well protected |
 | TLS certificate pinning | Interception fails even with a rogue CA | Pins must be managed across renewals |

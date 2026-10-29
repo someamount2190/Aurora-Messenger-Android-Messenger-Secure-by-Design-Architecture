@@ -165,7 +165,7 @@ class BackupsTest {
 
     /** A lock currently unlocked with the DECOY pin — exports must be refused. */
     private fun decoyActiveLock(): AppLock = AppLock(lockPrefs()) { 1_000L }.apply {
-        setPin("1234"); setDecoyPin("9999")
+        setPin("1234"); setDecoyPin("9999", "1234")
         check(tryUnlock("9999") == AppLock.UnlockResult.DECOY) { "decoy unlock should have flagged decoyActive" }
     }
 

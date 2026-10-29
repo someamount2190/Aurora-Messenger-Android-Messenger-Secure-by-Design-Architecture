@@ -72,7 +72,12 @@ flowchart LR
 
 ## 3. Control plane vs data plane
 
-The server only helps peers *find* each other; it is never in the path of content.
+The server helps peers *find* each other, and by default it is never in the path of content.
+The one exception is the **blind relay**, an opt-in message transport that is **off by default**
+(`AuroraSettings.relayEnabled`). When the user enables it, sealed message frames may pass through
+the server; it still cannot decrypt them, but it sees sender, recipient, timing and size. The
+relay is a data-plane path, not a control-plane one — discovery, address lookup and wake-ups are
+unaffected by the switch.
 
 ```mermaid
 sequenceDiagram
@@ -85,7 +90,7 @@ sequenceDiagram
   A->>R: find / signal to B (opaque payload)
   R-->>B: wake (/wait returns)
   B->>R: drain signal (authenticated)
-  Note over A,B: Data plane (content) — server NOT involved
+  Note over A,B: Data plane (content) — server NOT involved unless the opt-in relay is enabled
   A-->>B: direct P2P: XChaCha20-Poly1305 sealed frames
   A-->>B: WebRTC media (calls), E2E
 ```

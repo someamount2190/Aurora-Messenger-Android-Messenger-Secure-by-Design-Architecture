@@ -10,7 +10,7 @@ import org.json.JSONObject
 /**
  * The QR pairing payload: JSON { v, nodeId, kem, ed25519, rdv? }.
  *
- * `kem` is the full hybrid KEM public key (Kyber-1024 + X25519) — what the
+ * `kem` is the full hybrid KEM public key (ML-KEM-768 + X25519, X-Wing) — what the
  * scanner encapsulates against. `ed25519` verifies rendezvous check-in
  * signatures. `rdv` (optional) is an ordered list of rendezvous base URLs the
  * issuer is hosting on — the scanner probes them and adopts the first reachable

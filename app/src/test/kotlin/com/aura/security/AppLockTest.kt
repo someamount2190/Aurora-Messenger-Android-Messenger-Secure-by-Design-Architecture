@@ -40,7 +40,7 @@ class AppLockTest {
     @Test fun decoyPin_unlocksDecoy_andFlagsDecoyActive() {
         val lock = newLock()
         lock.setPin("1234")
-        lock.setDecoyPin("9999")
+        lock.setDecoyPin("9999", "1234")
         assertEquals(AppLock.UnlockResult.DECOY, lock.tryUnlock("9999"))
         assertTrue(lock.decoyActive.value, "decoy unlock must flag the data-hiding mode")
         assertFalse(lock.locked.value)
@@ -96,11 +96,54 @@ class AppLockTest {
         assertNotEquals("1234", prefs.getString("real_hash", null))
     }
 
-    @Test fun disableLock_clearsEverything() {
+    @Test fun disableLock_withRealPin_clearsEverything() {
         val lock = newLock()
         lock.setPin("1234")
-        lock.disableLock()
+        assertEquals(AppLock.LockChangeResult.OK, lock.disableLock("1234"))
         assertFalse(lock.isLockEnabled())
         assertFalse(lock.locked.value)
+        assertFalse(lock.enabled.value)
+    }
+
+    @Test fun disableLock_rejectsWrongPin_andKeepsTheLock() {
+        val lock = newLock()
+        lock.setPin("1234")
+        assertEquals(AppLock.LockChangeResult.WRONG_PIN, lock.disableLock("0000"))
+        assertTrue(lock.isLockEnabled(), "a wrong PIN must not remove the lock")
+        assertTrue(lock.enabled.value)
+    }
+
+    @Test fun disableLock_rejectsDecoyPin() {
+        val lock = newLock()
+        lock.setPin("1234")
+        lock.setDecoyPin("9999", "1234")
+        assertEquals(AppLock.LockChangeResult.WRONG_PIN, lock.disableLock("9999"))
+        assertTrue(lock.isLockEnabled(), "the decoy PIN must not tear down the real lock")
+    }
+
+    @Test fun changePin_requiresTheCurrentPin() {
+        val lock = newLock()
+        lock.setPin("1234")
+        assertEquals(AppLock.LockChangeResult.WRONG_PIN, lock.setPin("5678"), "no current PIN")
+        assertEquals(AppLock.LockChangeResult.WRONG_PIN, lock.setPin("5678", "0000"), "wrong current PIN")
+        assertEquals(AppLock.LockChangeResult.OK, lock.setPin("5678", "1234"))
+        assertEquals(AppLock.UnlockResult.REAL, lock.tryUnlock("5678"))
+    }
+
+    @Test fun setDecoyPin_requiresTheCurrentPin_whenALockExists() {
+        val lock = newLock()
+        lock.setPin("1234")
+        assertEquals(AppLock.LockChangeResult.WRONG_PIN, lock.setDecoyPin("9999"))
+        assertEquals(AppLock.LockChangeResult.WRONG_PIN, lock.setDecoyPin("9999", "0000"))
+        assertEquals(AppLock.LockChangeResult.OK, lock.setDecoyPin("9999", "1234"))
+        assertEquals(AppLock.UnlockResult.DECOY, lock.tryUnlock("9999"))
+    }
+
+    @Test fun disableLock_isLockedOutAfterRepeatedFailures() {
+        val lock = newLock()
+        lock.setPin("1234")
+        repeat(5) { assertEquals(AppLock.LockChangeResult.WRONG_PIN, lock.disableLock("0000")) }
+        assertEquals(AppLock.LockChangeResult.LOCKED_OUT, lock.disableLock("1234"))
+        assertTrue(lock.isLockEnabled())
     }
 }

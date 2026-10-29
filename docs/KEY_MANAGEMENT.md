@@ -38,8 +38,12 @@ Lifecycle of every key, from generation to destruction. Primitives and sizes are
   QR's authentic key.
 
 ## Media & backup keys
-- **Media:** a ratchet-derived media key encrypts media at rest; media is decrypted in-memory for
-  display, never written as plaintext.
+- **Media at rest:** each contact gets a random 32-byte **media key** when its ratchet record is
+  bootstrapped (`KemRatchetManager`). It is stored in the same record as the ratchet and
+  **never travels**, so media stays readable on this device after the ratchet advances.
+- **Media on the wire:** the bytes are sealed separately with the ratchet for transport and
+  re-encrypted under the local media key on receipt. Nothing is written to disk as plaintext
+  except a voice recording in progress (`PlaintextScratch`).
 - **Backups (opt-in):** a backup key is derived from the user passphrase via **Argon2id**; the
   backup is sealed with **XChaCha20-Poly1305**. The passphrase is never stored.
 

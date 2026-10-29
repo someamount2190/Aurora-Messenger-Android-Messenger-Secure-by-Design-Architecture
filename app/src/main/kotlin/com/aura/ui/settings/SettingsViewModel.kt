@@ -40,12 +40,21 @@ class SettingsViewModel @Inject constructor(
 
     val isRooted: Boolean by lazy { RootDetector.isLikelyRooted() }
 
-    fun lockEnabled(): Boolean = appLockManager.isLockEnabled()
+    val lockEnabledFlow: StateFlow<Boolean> = appLockManager.enabled
     // PIN/lock changes are blocked under decoy so a coercer can't lock out the real owner
     // (change the real PIN) or tear down the lock while holding only the decoy PIN.
-    fun setPin(pin: String) { if (!appLockManager.decoyActive.value) appLockManager.setPin(pin) }
-    fun setDecoyPin(pin: String) { if (!appLockManager.decoyActive.value) appLockManager.setDecoyPin(pin) }
-    fun disableLock() { if (!appLockManager.decoyActive.value) appLockManager.disableLock() }
+    // Outside decoy mode, AppLock itself requires the current PIN for every change.
+    fun setPin(newPin: String, currentPin: String? = null): AppLock.LockChangeResult =
+        if (appLockManager.decoyActive.value) AppLock.LockChangeResult.WRONG_PIN
+        else appLockManager.setPin(newPin, currentPin)
+
+    fun setDecoyPin(newPin: String, currentPin: String? = null): AppLock.LockChangeResult =
+        if (appLockManager.decoyActive.value) AppLock.LockChangeResult.WRONG_PIN
+        else appLockManager.setDecoyPin(newPin, currentPin)
+
+    fun disableLock(currentPin: String): AppLock.LockChangeResult =
+        if (appLockManager.decoyActive.value) AppLock.LockChangeResult.WRONG_PIN
+        else appLockManager.disableLock(currentPin)
 
     fun setThemeMode(mode: ThemeMode) = settings.setThemeMode(mode)
     fun setThemePalette(palette: ThemePalette) = settings.setThemePalette(palette)

@@ -110,6 +110,27 @@ class AuroraSettings @Inject constructor(
         _peerIpExposurePolicy.value = policy
     }
 
+    private val _relayEnabled = MutableStateFlow(prefs.getBoolean(KEY_RELAY_ENABLED, false))
+    /**
+     * Opt-in to the server blind relay (DERP). Off by default.
+     *
+     * When off, messages are only ever delivered over a direct connection — the WebRTC data
+     * channel or direct TCP. If no direct path can be established (both peers behind
+     * carrier-grade NAT, for example) the message stays pending and is retried; it is never
+     * passed through the rendezvous server.
+     *
+     * When on, the server forwards sealed frames it cannot decrypt, buffers them for up to
+     * 60 s while the recipient is offline, and can observe who is messaging whom, when, and
+     * the message size. [PeerIpExposurePolicy.STRICT_RELAY_ONLY] is only satisfiable with
+     * this enabled (or with a TURN server configured for the RTC path).
+     */
+    val relayEnabled: StateFlow<Boolean> = _relayEnabled
+
+    fun setRelayEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_RELAY_ENABLED, enabled).apply()
+        _relayEnabled.value = enabled
+    }
+
     private val _duressWipe = MutableStateFlow(prefs.getBoolean(KEY_DURESS_WIPE, false))
     /**
      * When true, the decoy PIN doesn't just show an empty app — it triggers a full
@@ -234,6 +255,8 @@ class AuroraSettings @Inject constructor(
         _shadowMeshEnabled.value = false
         _duressWipe.value = false
         _blockedNodes.value = emptySet()
+        _relayEnabled.value = false
+        _peerIpExposurePolicy.value = PeerIpExposurePolicy.ALWAYS_P2P
     }
 
     companion object {
@@ -260,6 +283,7 @@ class AuroraSettings @Inject constructor(
         private const val KEY_SHADOWMESH      = "shadowmesh_enabled"
         private const val KEY_BLOCKED         = "blocked_nodes"
         private const val KEY_PEER_IP_POLICY  = "peer_ip_policy"
+    private const val KEY_RELAY_ENABLED   = "relay_enabled"
     }
 }
 

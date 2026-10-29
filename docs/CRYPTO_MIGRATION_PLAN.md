@@ -13,6 +13,11 @@
 > **Also done:** Phase 4b (legacy no-FS fallback removed — pairing now fails closed without a
 > verified PQXDH bundle) and the test-vector / audit-scope doc refresh (§7).
 >
+> **Correction (2026-10-28):** "removed" above means *no longer linked or called* — the crypto
+> module is pure-JVM and nothing references liboqs. The unused `liboqs-java-0.3.0.jar` and
+> `.pom` are **still vendored** in `libs/maven/org/openquantumsafe/`; they are dead bytes, not a
+> dependency. Delete them before release.
+>
 > **Phase 5 (post-quantum asymmetric ratchet): WIRED IN — now the ONLY ratchet.** The X-Wing
 > KEM Double Ratchet is the single per-contact ratchet — `KemDoubleRatchet` + `KemRatchetCodec`
 > + store-backed `KemRatchetManager` drive `MessageSender`/`TcpMessageServer`/`MediaTransfer`

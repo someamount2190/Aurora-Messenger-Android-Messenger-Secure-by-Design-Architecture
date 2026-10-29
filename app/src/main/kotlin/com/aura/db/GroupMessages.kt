@@ -71,4 +71,8 @@ interface GroupMessageDao {
     // Wipe hooks.
     @Query("DELETE FROM group_messages WHERE groupId = :groupId") suspend fun deleteGroupMessages(groupId: String)
     @Query("DELETE FROM group_deliveries WHERE groupId = :groupId") suspend fun deleteGroupDeliveries(groupId: String)
+
+    // Full wipe ("Clear All Data"). See the note on GroupDao.deleteAllGroups.
+    @Query("DELETE FROM group_messages") suspend fun deleteAllMessages()
+    @Query("DELETE FROM group_deliveries") suspend fun deleteAllDeliveries()
 }

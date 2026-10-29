@@ -11,7 +11,7 @@ import androidx.room.Query
  * Our own published prekeys for the forward-secret pairing handshake (PQXDH).
  *
  * Two kinds: a medium-term **signed prekey** ("spk", rotated ~weekly) and a pool of
- * single-use **one-time prekeys** ("opk"). Each is a full hybrid (Kyber-1024 + X25519)
+ * single-use **one-time prekeys** ("opk"). Each is a full hybrid (ML-KEM-768 + X25519, X-Wing)
  * KEM keypair. The *public* halves are published (signed) to the rendezvous server so
  * an initiator who scans our QR can encapsulate against them; the *private* halves stay
  * here in the SQLCipher-encrypted DB.

@@ -74,4 +74,10 @@ interface GroupDao {
     @Query("DELETE FROM groups WHERE groupId = :groupId") suspend fun deleteGroup(groupId: String)
     @Query("DELETE FROM group_members WHERE groupId = :groupId") suspend fun deleteMembers(groupId: String)
     @Query("DELETE FROM group_membership_events WHERE groupId = :groupId") suspend fun deleteEvents(groupId: String)
+
+    // Full wipe ("Clear All Data"). The DB file is also deleted, but the logical row-drop must be
+    // complete in case that file delete is blocked.
+    @Query("DELETE FROM groups") suspend fun deleteAllGroups()
+    @Query("DELETE FROM group_members") suspend fun deleteAllMembers()
+    @Query("DELETE FROM group_membership_events") suspend fun deleteAllEvents()
 }

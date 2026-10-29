@@ -66,7 +66,10 @@ class AppWiring @Inject constructor(
             callManager.updateIceServers(servers)
         }
         // A wake may mean the relay is holding frames for us: reconnect so it flushes them.
-        syncEngine.onWoken = { scope.launch { derpTransport.resume() } }
+        // Only when the relay is enabled — otherwise never open a socket to it.
+        syncEngine.onWoken = {
+            scope.launch { if (settings.relayEnabled.value) derpTransport.resume() }
+        }
         shareShortcutManager.start()
         syncEngine.start()
     }

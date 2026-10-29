@@ -86,7 +86,8 @@ address. This padding does not hide the mapping from the server or prevent traff
 
 ## 5. Identity binding (STRICT_BINDING)
 
-A check-in may carry `kemPub` + `dilithiumPub`. If present, the server enforces
+A check-in may carry `kemPub` + `dilithiumPub` (`dilithiumPub` is a legacy wire name; the value
+is an ML-DSA-65 public key). If present, the server enforces
 `nodeId == SHA3-256(kemPub ‖ signPub)` and rejects mismatches (HTTP 401). With
 strict binding (enabled by default unless `STRICT_BINDING=0`), a check-in **without** the binding keys is rejected,
 fully closing nodeId squatting. The in-app server is always strict.
@@ -124,9 +125,14 @@ operators must also disable identifying reverse-proxy access logs to preserve th
 
 ## 9. Blind relay (`/relay/stream`, protocol v2)
 
-The last-resort data path when neither the WebRTC data channel nor direct TCP reaches a
-peer (both behind carrier NAT, or the user's IP-exposure setting forbids direct paths). The
-payload is a frame already sealed by the KEM ratchet; the server routes on nodeIds only.
+The opt-in data path for when neither the WebRTC data channel nor direct TCP reaches a
+peer (both behind carrier NAT, or the user's IP-exposure setting forbids direct paths).
+**It is a client-side choice:** `AuroraSettings.relayEnabled` is `false` by default, so a
+stock install never sends `RELAY`. When the user enables it in Settings → Privacy, the
+client uses this socket; when it is off, the message stays pending and the conversation
+reports that no permitted path exists. The server side is always available — the gate is
+in the client. The payload is a frame already sealed by the KEM ratchet; the server routes
+on nodeIds only.
 JSON text frames over a WebSocket (clients must mask; fragmented and binary frames close the
 connection; max frame 128 KiB):
 

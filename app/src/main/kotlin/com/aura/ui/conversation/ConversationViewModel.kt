@@ -66,6 +66,17 @@ class ConversationViewModel @Inject constructor(
      *  indicator and surfaces connection failures (per the WebRTC transport patch). */
     val connection: StateFlow<com.aura.transport.rtc.RtcState> = rtcTransport.state(contactId)
 
+    /**
+     * True while a message to this contact is pending and this device is not permitted to
+     * use any path for it (direct blocked by the IP policy, server relay off — and, for
+     * media, no RTC channel either, since media has no relay path). Drives the "not
+     * delivered — no permitted path" banner so nothing is ever silently pending.
+     */
+    val deliveryBlocked: StateFlow<Boolean> =
+        combine(messageSender.noDeliveryPath, mediaTransfer.noDeliveryPath) { text, media ->
+            contactId in text || contactId in media
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
     init {
         // When the conversation is open and the contact is fully paired, attempt a direct
         // peer-to-peer connection so the header reflects reachability right away — this is

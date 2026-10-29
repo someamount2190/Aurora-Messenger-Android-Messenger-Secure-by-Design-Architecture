@@ -6,8 +6,8 @@ own license. All are permissively licensed and compatible with AGPL-3.0.
 
 | Component | Purpose | License |
 |---|---|---|
-| liboqs / liboqs-java (Open Quantum Safe) | Kyber-1024 KEM + Dilithium-3 signatures (post-quantum) | MIT |
-| Bouncy Castle (bcprov) | X25519, Ed25519, SHA-3, Argon2id | MIT (Bouncy Castle License) |
+| Bouncy Castle (bcprov) | X-Wing (ML-KEM-768 + X25519), ML-DSA-65, Ed25519, SHA-3, HKDF, Argon2id | MIT (Bouncy Castle License) |
+| Google Tink (`tink`, `tink-android`) | XChaCha20-Poly1305 AEAD | Apache-2.0 |
 | SQLCipher for Android (net.zetetic) | Encrypted database | BSD-style (Zetetic) |
 | AndroidX Room | Database ORM / migrations | Apache-2.0 |
 | AndroidX Security-Crypto | EncryptedSharedPreferences / Keystore-backed vaults | Apache-2.0 |
@@ -24,6 +24,11 @@ own license. All are permissively licensed and compatible with AGPL-3.0.
 
 The standalone rendezvous server (`rendezvous-server/index.js`) uses only the
 Node.js standard library (`http`, `crypto`), with no third-party runtime dependencies.
+
+> **liboqs is no longer used.** The post-quantum stack is Bouncy Castle's FIPS-final
+> implementations (ML-KEM-768, ML-DSA-65). The unused `liboqs-java-0.3.0.jar` is still present
+> in `libs/maven/org/openquantumsafe/` but nothing depends on it; it is dead weight scheduled
+> for deletion and is not part of the built app.
 
 Full license texts are available from each project's repository. This list is
 provided for attribution and is not legal advice.

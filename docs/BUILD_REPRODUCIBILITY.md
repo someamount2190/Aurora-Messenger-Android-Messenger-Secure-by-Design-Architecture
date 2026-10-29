@@ -15,8 +15,15 @@ How a reviewer builds Aurora from source and verifies a release artifact.
 | Java/Kotlin target | 17 | `compileOptions` / `kotlinOptions` |
 
 ## Standalone build
-Everything the build needs is vendored under `libs/maven` (an in-repo Maven repository), so a
-fresh clone builds with no external folders.
+`libs/maven` is an in-repo Maven repository, but it contains **only** Aurora's own
+`com.aura:aura-crypto:0.1.0` (plus the dead `liboqs-java-0.3.0` jar). Every other dependency —
+Bouncy Castle, Tink, AndroidX, Room, Hilt, SQLCipher — resolves from `google()`/`mavenCentral()`
+at build time. A fresh clone builds without external *folders*, not without network access.
+
+⚠ **No supply-chain enforcement:** there is no Gradle `verification-metadata.xml`, no
+`gradle.lockfile`, and no checksum pinning for remote artifacts. Version pins in
+`libs.versions.toml` are the only constraint, and a compromised upstream could serve different
+bytes for the same version. Adding dependency verification is a release prerequisite.
 
 ```powershell
 $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"

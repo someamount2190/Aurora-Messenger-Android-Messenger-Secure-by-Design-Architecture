@@ -13,12 +13,12 @@ import kotlinx.coroutines.flow.Flow
 data class ContactEntity(
     @PrimaryKey val nodeIdHex: String,
     val displayName: String,
-    /** Full HybridPublicKey bytes (Kyber-1024 + X25519), Base64. */
+    /** Full HybridPublicKey bytes (ML-KEM-768 + X25519, X-Wing), Base64. */
     val kemPubB64: String,
     /** Raw 32-byte Ed25519 public key, Base64 — verifies rendezvous check-ins. */
     val ed25519PubB64: String,
     /**
-     * Dilithium-3 (ML-DSA) public key, Base64 — the post-quantum half of the
+     * ML-DSA-65 public key (legacy "Dilithium" name), Base64 — the post-quantum half of the
      * peer's signing key. Learned off-QR during the pairing handshake (the QR is
      * too small to carry it). Null until the pair-ack arrives; when present,
      * rendezvous check-ins are verified with the full hybrid signature.

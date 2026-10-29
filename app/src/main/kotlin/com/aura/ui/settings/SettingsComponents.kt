@@ -123,6 +123,9 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
 internal fun PrivacySection(viewModel: SettingsViewModel) {
     val disappearing by viewModel.settings.disappearingTimer.collectAsState()
     val ipPolicy by viewModel.settings.peerIpExposurePolicy.collectAsState()
+    val relayEnabled by viewModel.settings.relayEnabled.collectAsState()
+    var confirmRelay by remember { mutableStateOf(false) }
+    var ipConflict by remember { mutableStateOf(false) }
     SectionTitle(stringResource(R.string.settings_privacy))
     Card {
         Column(Modifier.padding(16.dp)) {
@@ -153,10 +156,70 @@ internal fun PrivacySection(viewModel: SettingsViewModel) {
                 OptionRow(
                     label = stringResource(policy.labelRes),
                     selected = ipPolicy == policy,
-                    onClick = { viewModel.settings.setPeerIpExposurePolicy(policy) }
+                    onClick = {
+                        // "Never - always relay" has no delivery path while the relay is off
+                        // and no TURN server is configured, so refuse the combination rather
+                        // than let messages sit pending forever with no explanation.
+                        if (policy == PeerIpExposurePolicy.STRICT_RELAY_ONLY && !relayEnabled) {
+                            ipConflict = true
+                        } else {
+                            ipConflict = false
+                            viewModel.settings.setPeerIpExposurePolicy(policy)
+                        }
+                    }
                 )
             }
+            if (ipConflict) {
+                Text(
+                    stringResource(R.string.settings_ip_conflict),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    stringResource(R.string.settings_relay),
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.weight(1f)
+                )
+                Switch(
+                    checked = relayEnabled,
+                    onCheckedChange = { on ->
+                        if (on) confirmRelay = true
+                        else viewModel.settings.setRelayEnabled(false)
+                    }
+                )
+            }
+            Text(
+                stringResource(R.string.settings_relay_desc),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
+    }
+    if (confirmRelay) {
+        AlertDialog(
+            onDismissRequest = { confirmRelay = false },
+            title = { Text(stringResource(R.string.settings_relay_warning_title)) },
+            text = { Text(stringResource(R.string.settings_relay_warning_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.settings.setRelayEnabled(true)
+                    confirmRelay = false
+                }) { Text(stringResource(R.string.settings_relay_warning_confirm)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmRelay = false }) {
+                    Text(stringResource(R.string.settings_relay_warning_cancel))
+                }
+            }
+        )
     }
 }
 
@@ -164,9 +227,11 @@ internal fun PrivacySection(viewModel: SettingsViewModel) {
 internal fun SecuritySection(
     viewModel: SettingsViewModel,
     onSetPin: () -> Unit,
-    onSetDecoy: () -> Unit
+    onSetDecoy: () -> Unit,
+    onDisableLock: () -> Unit
 ) {
     val duressWipe by viewModel.settings.duressWipe.collectAsState()
+    val lockEnabled by viewModel.lockEnabledFlow.collectAsState()
     SectionTitle(stringResource(R.string.settings_security))
     Card {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -184,14 +249,14 @@ internal fun SecuritySection(
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = onSetPin, modifier = Modifier.weight(1f)) {
-                    Text(stringResource(if (viewModel.lockEnabled()) R.string.settings_change_pin else R.string.settings_set_pin))
+                    Text(stringResource(if (lockEnabled) R.string.settings_change_pin else R.string.settings_set_pin))
                 }
                 OutlinedButton(onClick = onSetDecoy, modifier = Modifier.weight(1f)) {
                     Text(stringResource(R.string.settings_decoy_pin))
                 }
             }
-            if (viewModel.lockEnabled()) {
-                TextButton(onClick = { viewModel.disableLock() }) { Text(stringResource(R.string.settings_disable_lock)) }
+            if (lockEnabled) {
+                TextButton(onClick = onDisableLock) { Text(stringResource(R.string.settings_disable_lock)) }
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -336,6 +401,7 @@ internal fun DataSection(
 internal fun PinDialog(
     title: String,
     subtitle: String? = null,
+    error: String? = null,
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -361,10 +427,78 @@ internal fun PinDialog(
                     ),
                     singleLine = true
                 )
+                error?.let {
+                    Spacer(Modifier.height(8.dp))
+                    Text(it, style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error)
+                }
             }
         },
         confirmButton = {
             TextButton(onClick = { onConfirm(pin) }, enabled = pin.length >= 4) { Text(stringResource(R.string.action_save)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } }
+    )
+}
+
+/**
+ * Change/verify dialog for an existing lock: the current PIN plus the new one. The current
+ * PIN is checked inside [com.aura.security.AppLock]; this dialog only collects it.
+ */
+@Composable
+internal fun PinChangeDialog(
+    title: String,
+    subtitle: String? = null,
+    error: String? = null,
+    onConfirm: (currentPin: String, newPin: String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var current by remember { mutableStateOf("") }
+    var next by remember { mutableStateOf("") }
+    com.aura.ui.FilterObscuredTouches()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column {
+                subtitle?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(8.dp))
+                }
+                OutlinedTextField(
+                    value = current,
+                    onValueChange = { current = it.filter { c -> c.isDigit() }.take(8) },
+                    label = { Text(stringResource(R.string.pin_current_label)) },
+                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword
+                    ),
+                    singleLine = true
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = next,
+                    onValueChange = { next = it.filter { c -> c.isDigit() }.take(8) },
+                    label = { Text(stringResource(R.string.pin_label)) },
+                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword
+                    ),
+                    singleLine = true
+                )
+                error?.let {
+                    Spacer(Modifier.height(8.dp))
+                    Text(it, style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(current, next) },
+                enabled = current.length >= 4 && next.length >= 4
+            ) { Text(stringResource(R.string.action_save)) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } }
     )

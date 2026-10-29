@@ -8,6 +8,7 @@ import com.aura.db.ContactDao
 import com.aura.db.MessageDao
 import com.aura.db.MessageEntity
 import com.aura.identity.IdentityStore
+import com.aura.transport.IpExposureGate
 import com.aura.transport.MessageSender
 import com.aura.transport.TcpMessageServer
 import com.aura.transport.WireFrames
@@ -47,6 +48,7 @@ class MediaTransfer @Inject constructor(
     private val messageDao: MessageDao,
     private val mediaStore: EncryptedMediaStore,
     private val messageSender: MessageSender,
+    private val ipExposureGate: IpExposureGate,
     private val tcpServer: TcpMessageServer,
     private val rtcTransport: PeerTransport,
     private val messagePulse: MessagePulse,
@@ -54,6 +56,15 @@ class MediaTransfer @Inject constructor(
 ) {
     private val _progress = MutableStateFlow<Map<String, Float>>(emptyMap())
     val progress: StateFlow<Map<String, Float>> = _progress
+
+    /**
+     * Contacts with a pending outbound media message and **no permitted transport**: the IP
+     * policy forbids a direct connection and no RTC data channel is up. Media has no relay
+     * path, so this is a dead end until the policy changes or an RTC session is established.
+     * Drives the same "not delivered" banner as text.
+     */
+    private val _noDeliveryPath = MutableStateFlow<Set<String>>(emptySet())
+    val noDeliveryPath: StateFlow<Set<String>> = _noDeliveryPath
 
     // Serializes the background retry sweep; the per-id [inFlight] set stops a retry from
     // racing the original inline send (or another sweep) into a double delivery.
@@ -121,6 +132,7 @@ class MediaTransfer @Inject constructor(
         setProgress(messageId, 0.2f)
 
         attemptDeliver(messageId, contactNodeIdHex, type, plaintext, durationMs)
+        refreshNoPath()
         return messageId
     }
 
@@ -161,6 +173,19 @@ class MediaTransfer @Inject constructor(
             val plaintext = mediaStore.readDecrypted(path, mediaKey) ?: continue
             attemptDeliver(msg.id, msg.contactNodeIdHex, msg.type, plaintext, msg.durationMs)
         }
+        refreshNoPath()
+    }
+
+    /** Recompute [noDeliveryPath] from the pending media rows and the current IP policy. */
+    private suspend fun refreshNoPath() {
+        val blocked = messageDao.pendingMedia()
+            .map { it.contactNodeIdHex }
+            .distinct()
+            .filter { node ->
+                ipExposureGate.relayOnly(node) && !rtcTransport.isConnected(node)
+            }
+            .toSet()
+        _noDeliveryPath.value = blocked
     }
 
     private fun bodyLabel(type: String) = when (type) {
@@ -197,7 +222,8 @@ class MediaTransfer @Inject constructor(
         setProgress(messageId, 0.6f)
 
         // Preferred path: the peer-to-peer WebRTC data channel — the same NAT-traversing
-        // route messages and calls take. Falls back to direct TCP for LAN / reachable peers.
+        // route messages and calls take. Its ICE policy is already gated by IpExposureGate
+        // (relay-only when the contact may not learn our IP), so a connected channel is safe.
         if (rtcTransport.isConnected(contactNodeIdHex)) {
             val ack = rtcTransport.sendMedia(contactNodeIdHex, startFrame, sealed.bytes)
             if (ack?.optString("t") == "ack" && ack.optString("id") == messageId) return true
@@ -205,6 +231,12 @@ class MediaTransfer @Inject constructor(
             // Warm an RTC session so the next sweep can use it (a CGNAT peer TCP can't reach).
             rtcTransport.connectAsync(contactNodeIdHex)
         }
+
+        // Direct TCP reveals our IP to the peer, exactly like a text frame does. Apply the
+        // same IpExposureGate before falling back: when the policy forbids direct connections
+        // for this contact, media must not silently leak the address. Media has no relay path,
+        // so it stays pending and the conversation shows the "no permitted path" banner.
+        if (ipExposureGate.relayOnly(contactNodeIdHex)) return false
 
         val address = messageSender.resolvePeerAddress(contact) ?: return false
         val response = messageSender.sendMediaChunked(address, startFrame, sealed.bytes)
@@ -215,13 +247,19 @@ class MediaTransfer @Inject constructor(
      * TCP server callback: drain the streamed chunks off the socket, then store + ack.
      * (The RTC path reassembles the blob in the data session and calls [storeIncomingMedia]
      * directly — no socket draining needed.)
+     *
+     * Inbound direct media is subject to the same IP-exposure policy as outbound: if this
+     * contact may not have a direct path with us, the socket is refused **before** the
+     * payload is read. Media can still arrive over a TURN-relayed RTC channel, which the
+     * policy permits.
      */
-    private suspend fun handleIncomingTcp(frame: JSONObject, socket: Socket): Boolean {
+    internal suspend fun handleIncomingTcp(frame: JSONObject, socket: Socket): Boolean {
         val identity = identityManager.getOrCreate()
         val myNodeId = identity.nodeId.toHex()
         val from = frame.optString("from")
         if (frame.optString("to") != myNodeId) return false
         contactDao.byNodeId(from) ?: return false
+        if (ipExposureGate.relayOnly(from)) return false
 
         val messageId = frame.optString("id")
         val chunkCount = frame.optInt("chunks", -1)

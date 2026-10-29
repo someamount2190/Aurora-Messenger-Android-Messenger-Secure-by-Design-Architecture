@@ -2,8 +2,10 @@
 
 > Historical test record. Entries below describe the builds and environments at their
 > stated dates, including the retired liboqs/Kyber implementation and old `/find` behavior.
-> They are not a current release certification. For the current automated-test baseline,
-> see [`docs/TEST_STATUS.md`](docs/TEST_STATUS.md); for pending work, see
+> They are not a current release certification. The current primitives are **X-Wing
+> (ML-KEM-768 + X25519)** and **ML-DSA-65 + Ed25519**, and the current automated baseline is
+> **161 crypto + 233 app + 18 server = 412**. For that baseline, see
+> [`docs/TEST_STATUS.md`](docs/TEST_STATUS.md); for pending work, see
 > [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md).
 
 Per the build spec: every phase is tested on two emulators before moving on.

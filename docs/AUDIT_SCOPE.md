@@ -21,6 +21,8 @@ already know about. It is the map; the territory is the source and the rest of `
 | [`docs/SOURCE_DECOMPOSITION.md`](SOURCE_DECOMPOSITION.md) | Structural-health pass: large mixed-concern files & decomposition plan |
 | [`docs/CRYPTO_TEST_VECTORS.md`](CRYPTO_TEST_VECTORS.md) | Per-primitive test-vector / KAT sources & applicability |
 | [`docs/CRYPTO_MIGRATION_PLAN.md`](CRYPTO_MIGRATION_PLAN.md) | Locked plan: replace hand-rolled crypto with libraries, move to FIPS PQC + X-Wing |
+| [`docs/STRUCTURE_MAP.md`](STRUCTURE_MAP.md) | Verified file inventory and the documentation drift ledger |
+| [`docs/CHANGE_RELAY_OPT_IN.md`](CHANGE_RELAY_OPT_IN.md) | Relay opt-in change record: audit table, behaviour matrix, known gaps |
 | [`SECURITY.md`](../SECURITY.md) | Disclosure policy |
 
 ## System under review
@@ -45,7 +47,9 @@ report-eligibility version of this list.)
   fact that you run Aurora or your IP from the rendezvous. No onion routing / traffic-analysis
   resistance in the default path.
 - **Availability.** The free single-instance rendezvous offers no DoS guarantees.
-- **Groups / multi-device.** Aurora is strictly two-party, one device per identity.
+- **Groups / multi-device.** Aurora is one device per identity. Group tables and tests exist
+  (`com.aura.group`, five tables) but no group flow is reachable from the shipped UI, so group
+  messaging is outside the audit surface.
 
 ## Assumptions
 - The Android Keystore / TEE provides a trustworthy hardware-backed master key.
@@ -54,7 +58,8 @@ report-eligibility version of this list.)
 - The underlying primitives (ML-KEM-768 & X25519 via **X-Wing**, ML-DSA-65, Ed25519,
   XChaCha20-Poly1305, SHA-3, Argon2id) are secure at their chosen parameter sets, and their
   implementations (**Bouncy Castle** PQC, **Google Tink**, SQLCipher) are correct. The stack
-  is now pure-JVM — liboqs/JNI has been removed (see [`CRYPTO_MIGRATION_PLAN.md`](CRYPTO_MIGRATION_PLAN.md)).
+  is pure-JVM — nothing links liboqs (the unused jar is still vendored; see
+  [`CRYPTO_MIGRATION_PLAN.md`](CRYPTO_MIGRATION_PLAN.md)).
   Caveat: BouncyCastle's X-Wing tracks an in-progress IETF draft (-07), not a finalized standard.
 - TLS + certificate pinning protect the rendezvous transport against a rogue CA.
 
@@ -73,9 +78,23 @@ report-eligibility version of this list.)
   secrecy.
 - **Rendezvous learns reachability.** It maps `nodeId → address` (15-min TTL, in-memory,
   no logs) and observes that a device is online; disclosed in the Privacy Policy.
-- **Direct-P2P over NAT.** Messages flow peer-to-peer; two peers both behind carrier-grade
-  NAT may be unable to deliver without a relay. The optional ShadowMesh relay (off by
-  default) is the intended fallback; reliability for two cellular peers is unverified.
+- **Direct-P2P over NAT.** Messages flow peer-to-peer. Two peers both behind carrier-grade NAT
+  have no direct path: with the **opt-in blind relay** enabled (off by default) messages fall
+  back to it; with it off the message stays pending and the UI reports no permitted path.
+  Reliability for two cellular peers is unverified. (ShadowMesh, a separate dormant scaffold,
+  is not this relay and is not a fallback.)
+- **Relay metadata.** When the relay is enabled the operator sees sender, recipient, timing and
+  frame size for relayed messages (never content). The switch is client-side
+  (`AuroraSettings.relayEnabled`); the server always offers the endpoint.
+- **Media IP-exposure.** Media has no relay path, but both directions consult
+  `PeerIpExposurePolicy` through `IpExposureGate` (`MediaTransfer.kt`): a relay-only contact
+  cannot learn our IP from a media send, and an inbound direct TCP media frame is refused
+  before the payload is read. The UI reports no permitted path. Inbound media over
+  TURN-relayed RTC remains permitted, because inbound RTC sessions are created with
+  `ipGate.relayOnly(from)` and therefore use TURN-only ICE. Inbound **text** over direct TCP
+  is not yet gated; it is a documented follow-up.
+- **App lock.** Removing or changing the lock requires the current real PIN (`AppLock`);
+  `SecureWipe` uses an internal unguarded path because it runs after key destruction.
 - **Dormant code:** the "Host & show my code" LAN-beacon path (`host=true`) exists in
   source but is **not reachable from the shipped UI**; the only live "Show my code" is the
   plain shared-server code. (README reconciliation tracked for Phase F.)
@@ -83,8 +102,9 @@ report-eligibility version of this list.)
 - **No independent audit** has been performed.
 
 ## Prior validation (not a substitute for audit)
-- JVM/Robolectric unit tests + native instrumented crypto/attack tests
-  (see [`docs/TEST_ARCHITECTURE.md`](TEST_ARCHITECTURE.md), [`docs/TEST_STATUS.md`](TEST_STATUS.md)).
+- JVM/Robolectric unit tests (see [`docs/TEST_ARCHITECTURE.md`](TEST_ARCHITECTURE.md),
+  [`docs/TEST_STATUS.md`](TEST_STATUS.md)). **There is no instrumented `androidTest` suite** —
+  `app/src/androidTest` is empty — and no emulator job in CI.
 - Emulator soak (process/FGS survival, no leaks, no app crashes) and a live **real-phone ↔
   emulator pairing** test confirming the cross-network pairing path over the production
   rendezvous.

@@ -1,7 +1,7 @@
 // Aurora standalone rendezvous server (Phase 8 graduation from the in-app NanoHTTPD
 // server). Behaviour-identical to com.aura.server.AuroraRendezvousServer:
 //
-//   POST /checkin        verify hybrid (Dilithium-3 + Ed25519) check-in, store
+//   POST /checkin        verify hybrid (ML-DSA-65 + Ed25519) check-in, store
 //                        nodeId→IP, 15-min TTL
 //   GET  /find/:nodeId   return exactly 10 candidates (real + padding), each signed
 //   POST /signal/:nodeId queue an opaque (encrypted) signaling payload (wakes /wait)
@@ -16,7 +16,7 @@
 // Zero logs of payloads or message content. In-memory only — restart wipes all
 // state. The signed check-in string and 10-candidate /find format match the
 // Kotlin client byte-for-byte, so the same app talks to either server. The server
-// validates the Ed25519 half of the hybrid check-in (it has no Dilithium); the full
+// validates the Ed25519 half of the hybrid check-in (it has no ML-DSA verifier); the full
 // hybrid signature is stored and served so peers verify it post-quantum themselves.
 //
 // Run: node index.js   (listens on PORT, default 8080)
@@ -211,13 +211,13 @@ function verifyEd25519Raw(message, sig, pubB64) {
   }
 }
 
-// Verify a check-in signature. The app signs check-ins with a Dilithium-3 + Ed25519
-// HYBRID signature, wire format [4B big-endian Dilithium len][Dilithium sig][Ed25519
-// sig 64B]. Node has no liboqs Dilithium, and server-side check-in verification is
+// Verify a check-in signature. The app signs check-ins with an ML-DSA-65 + Ed25519
+// HYBRID signature, wire format [4B big-endian ML-DSA len][ML-DSA sig][Ed25519
+// sig 64B]. Node has no ML-DSA verifier, and server-side check-in verification is
 // self-referential anyway (the public key is supplied in the request) — the
 // post-quantum check that matters happens peer-side in verifyCandidates against the
-// Dilithium key learned at pairing. So we verify the Ed25519 component here and store
-// /serve the full hybrid blob unchanged so peers can do the Dilithium verification.
+// ML-DSA key learned at pairing. So we verify the Ed25519 component here and store
+// /serve the full hybrid blob unchanged so peers can do the ML-DSA verification.
 // A legacy 64-byte Ed25519-only signature is still accepted.
 function verifyCheckinSig(message, sigB64, pubB64) {
   let sig;

@@ -141,8 +141,8 @@ class RendezvousClient @Inject constructor(
             val timestamp = System.currentTimeMillis()
 
             val message = RendezvousProtocol.checkinMessage(nodeIdHex, ip, port, timestamp)
-            // Post-quantum: sign the check-in with the full Dilithium-3 + Ed25519
-            // hybrid. Peers verify this against the Dilithium key learned off-QR at
+            // Post-quantum: sign the check-in with the full ML-DSA-65 + Ed25519
+            // hybrid. Peers verify this against the ML-DSA key learned off-QR at
             // pairing (verifyCandidates), so a quantum forgery can't redirect them.
             val signature = signer
                 .sign(message, identity.privatePart.signingPrivateKey)

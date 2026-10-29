@@ -22,6 +22,13 @@
     <string name="settings_disappearing_desc">Таймер самоуничтожения по умолчанию для новых чатов.</string>
     <string name="settings_ip_title">Кто может видеть ваш IP-адрес</string>
     <string name="settings_ip_desc">Прямое соединение самое быстрое, но раскрывает ваш IP-адрес собеседнику. Соединение через ретранслятор скрывает его от контактов (сервер Aurora всё равно его видит); для звонков через ретранслятор нужен TURN-сервер.</string>
+    <string name="settings_relay">Ретрансляция через сервер</string>
+    <string name="settings_relay_desc">По умолчанию выключено. Если включено, сообщения, которые не удалось доставить напрямую, проходят через сервер Aurora в зашифрованном виде, который он не может прочитать. Сервер видит, кто кому пишет, когда и размер сообщения, и может хранить сообщение до 60 секунд, пока получатель не в сети.</string>
+    <string name="settings_relay_warning_title">Включить ретрансляцию через сервер?</string>
+    <string name="settings_relay_warning_body">Если ретрансляция включена, сервер Aurora становится частью пути доставки всякий раз, когда прямое соединение невозможно — например, когда оба устройства находятся за NAT оператора. Он пересылает зашифрованные данные, которые не может расшифровать, но видит, кто кому пишет, когда и какого размера каждое сообщение.\n\nЕсли оставить ретрансляцию выключенной, сообщения контактам за NAT оператора могут никогда не дойти.</string>
+    <string name="settings_relay_warning_confirm">Включить ретрансляцию</string>
+    <string name="settings_relay_warning_cancel">Оставить выключенной</string>
+    <string name="settings_ip_conflict">Для этого параметра нужна ретрансляция через сервер. Включите её выше или выберите другой вариант.</string>
     <string name="settings_security">Безопасность</string>
     <string name="settings_rooted_warning">⚠ Похоже, на этом устройстве есть root-доступ. Ваши ключи могут быть извлечены — используйте Aurora с осторожностью.</string>
     <string name="settings_lock_desc">Блокировка приложения (PIN-код). Отдельный ложный PIN-код открывает пустое приложение — без контактов и сообщений.</string>
@@ -55,6 +62,13 @@
     <string name="pin_set_lock">PIN-код блокировки</string>
     <string name="pin_set_decoy">Ложный PIN-код</string>
     <string name="pin_decoy_desc">Ввод этого PIN-кода открывает пустое приложение — без контактов и сообщений.</string>
+    <string name="pin_current_label">Текущий PIN-код</string>
+    <string name="pin_change_lock">Изменить PIN-код блокировки</string>
+    <string name="pin_change_decoy">Изменить ложный PIN-код</string>
+    <string name="pin_disable_title">Отключить блокировку</string>
+    <string name="pin_disable_desc">Введите текущий PIN-код, чтобы отключить блокировку приложения.</string>
+    <string name="pin_wrong_current">Неверный PIN-код.</string>
+    <string name="pin_locked_out">Слишком много попыток. Повторите позже.</string>
     <string name="clear_title">Удалить все данные?</string>
     <string name="clear_body">Будут стёрты ваши ключи личности, контакты и настройки. При следующем запуске будет создана новая личность. Это действие нельзя отменить.</string>
     <string name="clear_confirm">Стереть всё</string>
@@ -114,6 +128,7 @@
     <string name="conv_delete_contact">Удалить контакт</string>
     <string name="conv_banner_unreachable">Не удалось подключиться напрямую — возможно, вы оба используете мобильный интернет. Сообщения дойдут, как только один из вас подключится к Wi-Fi.</string>
     <string name="conv_banner_failed">Не удалось связаться с собеседником — возможно, он не в сети. Ваши сообщения отправятся автоматически, когда вы оба будете в сети.</string>
+    <string name="conv_banner_no_path">Не доставлено: настройка приватности IP запрещает прямое соединение с этим контактом, и для этого сообщения нет разрешённого пути ретрансляции. Измените в настройках, кто может видеть ваш IP.</string>
     <string name="conv_rename_hint">Соединение установлено. Откройте меню в верхнем углу и выберите «Переименовать контакт», чтобы дать ему имя.</string>
     <string name="conv_replying_self">Ответ себе</string>
     <string name="conv_replying_to">Ответ: %1$s</string>

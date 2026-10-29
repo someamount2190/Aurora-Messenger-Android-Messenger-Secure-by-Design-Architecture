@@ -46,13 +46,21 @@ class SecureWipe @Inject constructor(
         runCatching { database.meshPeerDao().deleteAll() }
         runCatching { database.ratchetDao().kemDeleteAll() }
         runCatching { database.prekeyDao().deleteAll() }
+        // Group tables. The DB file delete below normally removes them, but this row-drop is the
+        // fallback when that delete is blocked — leaving group rows behind would make the wipe
+        // incomplete, so they are cleared explicitly too.
+        runCatching { database.groupDao().deleteAllGroups() }
+        runCatching { database.groupDao().deleteAllMembers() }
+        runCatching { database.groupDao().deleteAllEvents() }
+        runCatching { database.groupMessageDao().deleteAllMessages() }
+        runCatching { database.groupMessageDao().deleteAllDeliveries() }
         // 2. Encrypted media files, plus any plaintext scratch (an in-progress recording, or
         //    copies older builds left in the cache) and in-memory pending shares.
         runCatching { mediaStore.wipeAll() }
         runCatching { PlaintextScratch.wipe(context) }
         runCatching { DecryptedMediaProvider.clearAll() }
         // 3. App-layer key vaults: lock PINs, identity keys, settings.
-        runCatching { appLockManager.disableLock() }
+        runCatching { appLockManager.forceDisableLock() }
         runCatching { identityManager.clear() }
         runCatching { settings.clearAll() }
         // 4. SQLCipher key, then close + delete the now-keyless database file.

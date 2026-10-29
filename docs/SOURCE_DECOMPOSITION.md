@@ -1,5 +1,9 @@
 # Source Decomposition
 
+> **Superseded for inventory purposes by [`STRUCTURE_MAP.md`](STRUCTURE_MAP.md)**, which is the
+> verified file/line inventory and carries the documentation drift ledger. This document remains
+> the maintainability analysis of large mixed-concern files; its counts predate the current tree.
+
 A structural-health pass over Aurora's source, focused on **large mixed-concern
 files** — single files that have grown to carry several responsibilities at once.
 This is a maintainability/auditability concern, not a security finding: large mixed-concern

@@ -13,7 +13,7 @@ this table is a human-readable mirror. License details: [`THIRD-PARTY-NOTICES.md
 | Bouncy Castle | `org.bouncycastle:bcprov-jdk18on` | 1.85 | X-Wing (ML-KEM-768+X25519), ML-DSA-65, Ed25519, HKDF/SHA3, Argon2id — pure-Java PQC | Maven Central |
 | Google Tink (JVM core) | `com.google.crypto.tink:tink` | 1.18.0 | XChaCha20-Poly1305 AEAD | Maven Central |
 | Google Tink (Android runtime) | `com.google.crypto.tink:tink-android` | 1.18.0 | Android AEAD runtime; kept in step with the JVM artifact | Maven Central |
-| SQLCipher | `net.zetetic:sqlcipher-android` | 4.5.6 | AES-256 encrypted database | Maven Central |
+| SQLCipher | `net.zetetic:sqlcipher-android` | 4.9.0 | AES-256 encrypted database | Maven Central |
 | AndroidX Security | `androidx.security:security-crypto` | 1.1.0-alpha06 | EncryptedSharedPreferences + Keystore master key | Google Maven |
 | `com.aura:aura-crypto` | in-repo (`crypto/`) | 0.1.0 | Aurora's own crypto core | Built locally → `libs/maven` |
 
@@ -41,12 +41,18 @@ this table is a human-readable mirror. License details: [`THIRD-PARTY-NOTICES.md
   artifact, so a fresh clone builds without external sibling folders. Auditors should confirm
   the vendored artifact matches the `crypto/` source.
 - **Pure-JVM cryptographic core:** the post-quantum stack is now pure-Java BouncyCastle (X-Wing/ML-DSA) +
-  Google Tink — liboqs and its `jniLibs` `.so` files have been removed, so there is no JNI
-  surface in the crypto module. SQLCipher and WebRTC still ship native libraries in the app. ⚠ BouncyCastle's X-Wing tracks an in-progress IETF draft; pin the version.
+  Google Tink — the crypto module no longer links liboqs, so there is no JNI surface in it.
+  SQLCipher and WebRTC still ship native libraries in the app. ⚠ BouncyCastle's X-Wing tracks an
+  in-progress IETF draft; pin the version.
+- **Dead artifact, not a dependency:** `libs/maven/org/openquantumsafe/liboqs-java/0.3.0/`
+  (`liboqs-java-0.3.0.jar` + `.pom`) is **still vendored** even though nothing depends on it.
+  Delete it before any release; it is currently the only reason the repo still contains liboqs
+  bytes.
 
 ## Notes
-- SQLCipher remains at 4.5.6 and AGP at 8.3.2. The planned 16 KB compatibility upgrade
-  is not shipped; see [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
+- SQLCipher is **4.9.0** (16 KB-ready per its release notes) and AGP is **8.3.2**. The app sets
+  `useLegacyPackaging = true`; ELF/APK alignment has not been verified on a 16 KB device, so the
+  16 KB claim is unproven. See [`PROJECT_STATUS.md`](PROJECT_STATUS.md).
 - This human-readable inventory **is** the project's SBOM; a machine-readable CycloneDX export
   is not published.
 - Optional provenance follow-up: recording upstream hashes/commits for the vendored

@@ -8,7 +8,9 @@ this walks), [`CRYPTO_SPEC.md`](CRYPTO_SPEC.md), and [`PROTOCOL_RENDEZVOUS.md`](
 ## 1. System description
 Two Android devices exchange messages and calls **directly (P2P)**, end-to-end encrypted. A
 near-zero-knowledge **rendezvous** maps `nodeId → address` and relays contentless wakes and
-opaque signaling. See the DFD in [`ARCHITECTURE.md`](ARCHITECTURE.md) §2.
+opaque signaling. A **blind relay** can also carry sealed message frames, but it is an opt-in
+transport, **off by default**; when enabled the server is in the path of message metadata (never
+content). See the DFD in [`ARCHITECTURE.md`](ARCHITECTURE.md) §2.
 
 ## 2. Assets
 
@@ -67,7 +69,7 @@ opaque signaling. See the DFD in [`ARCHITECTURE.md`](ARCHITECTURE.md) §2.
 | T-RZV-08 | (S/I) Receive another node's relayed frames | Relay sockets answer a fresh nonce with an Ed25519 signature under the checked-in key; only the addressed node can ack a ticket (`PROTOCOL` §9) | — |
 | T-RZV-09 | (T) Relay fakes delivery / drops frames | Ack is the recipient's own inbox response; client drops frames whose `from` disagrees with the relay | A malicious relay can still forge an ack or drop frames (same as an on-path attacker on TCP) |
 | T-RZV-10 | (D) Crash or exhaust the relay | Per-connection error isolation; frame/buffer/in-flight/rate/socket caps; unauthenticated sockets dropped in 10 s (`PROTOCOL` §4) | Single-instance DoS (non-goal) |
-| T-RZV-11 | (I) Peer learns our IP | User setting: direct for any / verified-only / never; "never" uses relay-only ICE + the blind relay | The rendezvous still sees our IP; relay-only calls need TURN |
+| T-RZV-11 | (I) Peer learns our IP | User setting: direct for any / verified-only / never; "never" uses relay-only ICE + the blind relay, which must be enabled for that policy to deliver | The rendezvous still sees our IP; relay-only calls need TURN; the relay is off by default |
 
 ### Pairing
 | ID | Threat | Mitigation | Residual |
@@ -106,7 +108,7 @@ opaque signaling. See the DFD in [`ARCHITECTURE.md`](ARCHITECTURE.md) §2.
 | P-LINK-01 | **Linkability** of sessions to an identity | No account/phone/email; identity is a key pair | nodeId is stable per install |
 | P-IDENT-01 | **Identifiability** of users | No PII collected; pairing in person | IP visible to rendezvous |
 | P-NREP-01 | Non-repudiation undermining deniability | (Trade-off) signatures give authenticity, not deniability | Deniable messaging is a non-goal |
-| P-DET-01 | **Detectability** that two parties communicate | Content P2P; server sees only reachability; decoy `/find` | Operator/ISP traffic correlation |
+| P-DET-01 | **Detectability** that two parties communicate | Content P2P by default; server sees reachability and signalling; decoy `/find`. With the opt-in relay enabled it also sees message sender, recipient, timing and size | Operator/ISP traffic correlation |
 | P-DISC-01 | Information **disclosure** of metadata at server | In-memory, 15-min TTL, no logs (`PROTOCOL` §8) | Live memory of a compromised server |
 | P-UNAW-01 | User **unawareness** of metadata exposure | Disclosed in Privacy Policy, README, this doc | — |
 | P-NC-01 | **Non-compliance** with stated policy | Zero-log design; AGPL source; warrant canary | Trust in operator |
@@ -117,12 +119,29 @@ opaque signaling. See the DFD in [`ARCHITECTURE.md`](ARCHITECTURE.md) §2.
   bespoke protocol crypto pending dedicated review (see [`AUDIT_SCOPE.md`](AUDIT_SCOPE.md)).
 - **Endpoint security is out of scope** (ADV-X): a rooted/malware device defeats E2E.
 - **No anonymity / traffic-analysis resistance** in the default path; the rendezvous learns
-  reachability + IP (P-DET-01, P-IDENT-01). Optional ShadowMesh relay (off by default).
+  reachability + IP (P-DET-01, P-IDENT-01). ShadowMesh is an opt-in scaffold, off by default,
+  and is **not** a working anonymity layer.
 - **Availability:** single free rendezvous, no DoS guarantees (T-RZV-06).
-- **Direct-P2P over NAT:** two peers both behind CGNAT fall back to the blind relay for
-  messages; calls between them need TURN (see [`AUDIT_SCOPE.md`](AUDIT_SCOPE.md)).
+- **Direct-P2P over NAT:** two peers both behind CGNAT have no direct path. With the relay
+  enabled (opt-in, off by default) messages fall back to it; with it off the message stays
+  pending and the conversation says so. Calls between them need TURN either way.
 - **Prekey suppression blocks pairing** (T-PAIR-03) — it can no longer downgrade it.
 - **The blind relay can forge acks or drop frames** (T-RZV-09); it cannot read or alter content.
+- **Media has no relay path.** Its outbound TCP fallback now consults the same
+  `IpExposureGate` as text (`MediaTransfer.kt`), so a relay-only contact cannot learn our IP
+  from a media send; the media stays pending and the conversation reports no permitted path.
+  Inbound direct media is gated too: `handleIncomingTcp` refuses the socket **before reading
+  the payload** when the contact may not have a direct path with us. The policy governs the
+  whole path, not just who dials — a peer whose own policy is permissive cannot override our
+  stricter one. Media still arrives over a TURN-relayed RTC channel, which the policy permits
+  (inbound RTC sessions are created with `ipGate.relayOnly(from)`, so relay-only ICE is
+  TURN-only). Inbound **text** over direct TCP is not yet gated (same shape as the old media
+  gap); it is tracked as a follow-up in `STRUCTURE_MAP.md`.
+- **The app lock requires the current real PIN to change or remove it.** Disabling the lock,
+  changing the PIN, and replacing the decoy PIN all go through `AppLock.tryUnlock`, so someone
+  holding an unlocked phone cannot silently strip the lock, and a wrong PIN counts toward the
+  existing lockout. `SecureWipe` uses an internal unguarded removal because it runs after key
+  destruction.
 - **No independent audit yet.**
 
 ## 8. Assurance (threat → test)
